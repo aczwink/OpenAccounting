@@ -1,0 +1,32 @@
+{
+  "name": "openaccounting-frontend",
+  "version": "1.0.0",
+  "description": "Software for managing sales, dispositions, payments etc.",
+  "main": "index.js",
+  "scripts": {
+    "generate-api": "npx acts-util-apilib",
+    "dev": "webpack serve --open"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aczwink/OpenAccounting.git"
+  },
+  "keywords": [],
+  "author": "Amir Czwink",
+  "license": "AGPL-3.0",
+  "bugs": {
+    "url": "https://github.com/aczwink/OpenAccounting/issues"
+  },
+  "homepage": "https://github.com/aczwink/OpenAccounting#readme",
+  "devDependencies": {
+    "dotenv-webpack": "^8.1.0",
+    "source-map-loader": "^5.0.0",
+    "ts-loader": "^9.5.1",
+    "webpack": "^5.93.0",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.0.4"
+  },
+  "dependencies": {
+    "acfrontend": "*"
+  }
+}
