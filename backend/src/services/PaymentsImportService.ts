@@ -18,9 +18,16 @@
 
 import { Injectable } from "acts-util-node";
 import { Payment, PaymentsController } from "../data-access/PaymentsController";
-import { GermanPayPalCSVParser } from "../payment-parsers/GermanPayPalCSVParser";
+import { GermanActivityPayPalCSVParser } from "../payment-parsers/GermanActivityPayPalCSVParser";
 import { IdentitiesController } from "../data-access/IdentitiesController";
 import { ParsedPayment } from "../payment-parsers/ParsedPayment";
+
+interface ImportResult
+{
+    invalid: string[];
+    imported: number;
+    found: number;
+}
 
 @Injectable
 export class PaymentsImportService
@@ -32,40 +39,61 @@ export class PaymentsImportService
     //Public methods
     public async ImportPayments(paymentServiceId: number, paymentsData: Buffer)
     {
-        const type = await this.paymentsController.QueryServiceType(paymentServiceId);
-        const paymentsParser = this.CreatePaymentsParser(type);
+        const result: ImportResult = {
+            invalid: [],
+            imported: 0,
+            found: 0
+        };
+
+        const service = await this.paymentsController.QueryService(paymentServiceId);
+        const paymentsParser = this.CreatePaymentsParser(service.type);
         const parsedPayments = await paymentsParser.Parse(paymentsData);
 
         for (const parsedPayment of parsedPayments)
         {
-            this.ValidatePayment(parsedPayment);
+            const validationResult = this.ValidatePayment(parsedPayment);
+            if(validationResult !== undefined)
+            {
+                result.invalid.push(validationResult);
+                continue;
+            }
 
             const foundPayment = await this.paymentsController.FindPayment(paymentServiceId, parsedPayment.transactionId);
             if(foundPayment === undefined)
+            {
                 await this.AddPayment(paymentServiceId, parsedPayment);
+                result.imported++;
+            }
             else
-                await this.MergePayments(foundPayment, parsedPayment)
+            {
+                await this.MergePayments(foundPayment, parsedPayment);
+                result.found++;
+            }
         }
+
+        return result;
     }
 
     //Private methods
     private async AddPayment(paymentServiceId: number, payment: ParsedPayment)
     {
-        let senderId = await this.identitiesController.FindIdentity(paymentServiceId, payment.senderId);
-        if(senderId === undefined)
+        let identityId = await this.identitiesController.FindIdentity(paymentServiceId, payment.participantId);
+        if(identityId === undefined)
         {
-            senderId = await this.identitiesController.CreateIdentity(payment.senderId);
-            await this.identitiesController.AddPaymentAccount(senderId, paymentServiceId, payment.senderId);
+            identityId = await this.identitiesController.CreateIdentity(payment.participantName || payment.participantId);
+            await this.identitiesController.AddPaymentAccount(identityId, paymentServiceId, payment.participantId);
         }
 
         await this.paymentsController.AddPayment({
+            type: payment.type,
             currency: payment.currency,
             externalTransactionId: payment.transactionId,
             grossAmount: payment.grossAmount,
             paymentServiceId,
-            senderId,
+            identityId: identityId,
             timestamp: payment.timeStamp,
-            transactionFee: payment.transactionFee
+            transactionFee: payment.transactionFee,
+            note: payment.note
         });
     }
 
@@ -74,7 +102,7 @@ export class PaymentsImportService
         switch(type)
         {
             case "paypal":
-                return new GermanPayPalCSVParser;
+                return new GermanActivityPayPalCSVParser;
             default:
                 throw new Error("Unknown payment service type: " + type);
         }
@@ -82,23 +110,31 @@ export class PaymentsImportService
 
     private async MergePayments(existingPayment: Payment, parsedPayment: ParsedPayment)
     {
-        const sender = await this.identitiesController.QueryIdentity(existingPayment.senderId);
+        const sender = await this.identitiesController.QueryIdentity(existingPayment.identityId);
         
         const existingAsParsed: ParsedPayment = {
+            type: existingPayment.type,
             currency: existingPayment.currency,
             timeStamp: existingPayment.timestamp,
             grossAmount: existingPayment.grossAmount,
-            senderId: sender?.paymentAccounts.find(x => x.paymentServiceId === existingPayment.paymentServiceId)?.externalAccount ?? "",
+            participantId: sender?.paymentAccounts.find(x => x.paymentServiceId === existingPayment.paymentServiceId)?.externalAccount ?? "",
             transactionFee: existingPayment.transactionFee,
-            transactionId: existingPayment.externalTransactionId
+            transactionId: existingPayment.externalTransactionId,
+            note: existingPayment.note,
+
+            //unimportant
+            participantName: parsedPayment.participantName
         };
         if(!existingAsParsed.Equals(parsedPayment))
+        {
+            console.log(existingAsParsed, parsedPayment);
             throw new Error("TODO: not implemented");
+        }
     }
 
     private ValidatePayment(payment: ParsedPayment)
     {
-        if(payment.senderId.trim().length === 0)
-            throw new Error("Payment " + payment.transactionId + " does not contain a valid sender");
+        if(payment.participantId.trim().length === 0)
+            return "Payment " + payment.transactionId + " does not contain a valid sender/receiver";
     }
 }

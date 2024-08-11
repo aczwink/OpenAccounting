@@ -56,7 +56,7 @@ export class MonthlyBillComponent extends Component
         if(response.statusCode === 200)
             this.fileDownloadService.DownloadBlobAsFile(response.data, "invoice-" + this.year + "-" + this.month + ".pdf");
         else
-            this.infoMessageManager.ShowMessage("An error occured", {});
+            this.infoMessageManager.ShowMessage("An error occured", { type: "danger" });
 
         this.loading = false;
     }

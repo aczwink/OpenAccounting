@@ -24,6 +24,7 @@
     "typescript": "^5.5.4"
   },
   "dependencies": {
+    "@dintero/money": "^1.0.13",
     "@fast-csv/parse": "^5.0.0",
     "acts-util-apilib": "*",
     "acts-util-core": "*",

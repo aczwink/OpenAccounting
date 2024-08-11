@@ -16,12 +16,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
+import { PaymentType } from "../data-access/PaymentsController";
+
 export interface ParsedPayment
 {
+    type: PaymentType;
     currency: string;
     timeStamp: Date;
     grossAmount: string;
     transactionFee: string;
-    senderId: string;
+    participantId: string;
+    participantName: string;
     transactionId: string;
+    note: string;
 }

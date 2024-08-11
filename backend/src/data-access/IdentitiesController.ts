@@ -25,10 +25,14 @@ interface PaymentAccountAssociation
     externalAccount: string;
 }
 
-interface Identity
+interface IdentityOverviewData
 {
     id: number;
     name: string;
+}
+
+interface Identity extends IdentityOverviewData
+{
     paymentAccounts: PaymentAccountAssociation[];
 }
 
@@ -81,5 +85,12 @@ export class IdentitiesController
         };
 
         return result;
+    }
+
+    public async QueryIdentities()
+    {
+        const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
+        const rows = await exector.Select<IdentityOverviewData>("SELECT id, name FROM identities");
+        return rows;
     }
 }

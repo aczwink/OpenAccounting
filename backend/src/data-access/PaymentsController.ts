@@ -19,15 +19,23 @@
 import { Injectable } from "acts-util-node";
 import { DatabaseController } from "./DatabaseController";
 
+export enum PaymentType
+{
+    Normal = 0,
+    Withdrawal = 1
+}
+
 interface PaymentCreationData
 {
+    type: PaymentType;
     paymentServiceId: number;
     externalTransactionId: string;
-    senderId: number;
+    identityId: number;
     timestamp: Date;
     grossAmount: string;
     transactionFee: string;
     currency: string;
+    note: string;
 }
 
 export interface Payment extends PaymentCreationData
@@ -39,6 +47,12 @@ interface PaymentService
 {
     id: number;
     name: string;
+}
+
+interface FullPaymentServiceData extends PaymentService
+{
+    type: string;
+    externalAccount: string;
 }
 
 @Injectable
@@ -64,18 +78,21 @@ export class PaymentsController
         if(row === undefined)
             return undefined;
 
-        const result: Payment = {
-            currency: row.currency,
-            externalTransactionId: row.externalTransactionId,
-            grossAmount: row.grossAmount,
-            id: row.id,
-            paymentServiceId: row.paymentServiceId,
-            senderId: row.senderId,
-            timestamp: this.dbController.ParseDateTime(row.timestamp),
-            transactionFee: row.transactionFee
-        };
+        return this.MapPayment(row);
+    }
 
-        return result;
+    public async QueryPayments(month: number, year: number)
+    {
+        const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
+        const rows = await exector.Select("SELECT * FROM payments WHERE YEAR(timestamp) = ? AND MONTH(timestamp) = ?", year, month);
+        return this.MapPayments(rows);
+    }
+
+    public async QueryOpenPayments()
+    {
+        const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
+        const rows = await exector.Select("SELECT p.* FROM payments p INNER JOIN payments_open po ON po.paymentId = p.id");
+        return this.MapPayments(rows);
     }
 
     public async QueryServices()
@@ -84,10 +101,34 @@ export class PaymentsController
         return exector.Select<PaymentService>("SELECT id, name FROM paymentServices");
     }
 
-    public async QueryServiceType(paymentServiceId: number)
+    public async QueryService(paymentServiceId: number)
     {
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
-        const row = await exector.SelectOne("SELECT type FROM paymentServices WHERE id = ?", paymentServiceId);
-        return row?.type as string;
+        const row = await exector.SelectOne<FullPaymentServiceData>("SELECT * FROM paymentServices WHERE id = ?", paymentServiceId);
+        return row!;
+    }
+
+    //Private methods
+    private MapPayment(row: any)
+    {
+        const result: Payment = {
+            type: row.type,
+            currency: row.currency,
+            externalTransactionId: row.externalTransactionId,
+            grossAmount: row.grossAmount,
+            id: row.id,
+            paymentServiceId: row.paymentServiceId,
+            identityId: row.identityId,
+            timestamp: this.dbController.ParseDateTime(row.timestamp),
+            transactionFee: row.transactionFee,
+            note: row.note
+        };
+
+        return result;
+    }
+
+    private MapPayments(rows: any[])
+    {
+        return rows.map(this.MapPayment.bind(this));
     }
 }

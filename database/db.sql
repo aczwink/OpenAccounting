@@ -17,6 +17,19 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
+-- Table structure for table `config`
+--
+
+DROP TABLE IF EXISTS `config`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `config` (
+  `name` varchar(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `data` mediumblob NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `identities`
 --
 
@@ -59,6 +72,7 @@ CREATE TABLE `paymentServices` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `type` varchar(50) NOT NULL,
   `name` varchar(200) NOT NULL,
+  `externalAccount` varchar(200) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -72,18 +86,20 @@ DROP TABLE IF EXISTS `payments`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `payments` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `type` tinyint(3) unsigned NOT NULL,
   `paymentServiceId` int(10) unsigned NOT NULL,
   `externalTransactionId` varchar(200) NOT NULL,
-  `senderId` int(10) unsigned NOT NULL,
+  `identityId` int(10) unsigned NOT NULL,
   `timestamp` datetime NOT NULL,
   `grossAmount` decimal(10,2) NOT NULL,
   `transactionFee` decimal(10,2) NOT NULL,
   `currency` char(3) NOT NULL,
+  `note` varchar(200) NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `payments_senderId` (`senderId`),
+  KEY `payments_senderId` (`identityId`),
   KEY `payments_paymentServiceId` (`paymentServiceId`),
   CONSTRAINT `payments_paymentServiceId` FOREIGN KEY (`paymentServiceId`) REFERENCES `paymentServices` (`id`),
-  CONSTRAINT `payments_senderId` FOREIGN KEY (`senderId`) REFERENCES `identities` (`id`)
+  CONSTRAINT `payments_senderId` FOREIGN KEY (`identityId`) REFERENCES `identities` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -114,4 +130,4 @@ CREATE TABLE `payments_open` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-08-04 19:17:34
+-- Dump completed on 2024-08-11 22:47:48

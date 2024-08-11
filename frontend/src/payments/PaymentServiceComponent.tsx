@@ -16,29 +16,33 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { Injectable } from "acts-util-node";
-import { DatabaseController } from "./DatabaseController";
+import { Component, Injectable, JSX_CreateElement, ProgressSpinner } from "acfrontend";
+import { PaymentService } from "../../dist/api";
+import { CachedAPIService } from "../CachedAPIService";
 
 @Injectable
-export class AssetController
+export class PaymentServiceComponent extends Component<{ paymentServiceId: number }>
 {
-    constructor(private dbController: DatabaseController)
+    constructor(private cachedAPIService: CachedAPIService)
     {
+        super();
+
+        this.data = null;
+    }
+    
+    protected Render(): RenderValue
+    {
+        if(this.data === null)
+            return <ProgressSpinner />;
+        return this.data.name;
     }
 
-    //Public methods
-    public async QueryAsset(name: string)
-    {
-        const data = await this.QueryAssetBinary(name);
-        return data?.toString("utf-8");
-    }
+    //Private state
+    private data: PaymentService | null;
 
-    public async QueryAssetBinary(name: string)
+    //Event handlers
+    override async OnInitiated(): Promise<void>
     {
-        const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
-        const row = await exector.SelectOne("SELECT data FROM config WHERE name = ?", name);
-        if(row === undefined)
-            return undefined;
-        return row.data as Buffer;
+        this.data = await this.cachedAPIService.RequestPaymentService(this.input.paymentServiceId);
     }
 }

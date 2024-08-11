@@ -23,6 +23,19 @@ import { BookingComponent } from "./BookingComponent";
 import { OpenPaymentsComponent } from "./payments/OpenPaymentsComponent";
 import { MonthlyPaymentsComponent } from "./payments/MonthlyPaymentsComponent";
 import { ImportPaymentsComponent } from "./payments/ImportPaymentsComponent";
+import { IdentitiesListComponent } from "./identities/IdentitiesListComponent";
+import { ShowIdentityComponent } from "./identities/ShowIdentityComponent";
+import { SubscriptionListComponent } from "./subscriptions/SubscriptionListComponent";
+import { ItemsListComponent } from "./items/ItemsListComponent";
+
+const identitiesRoutes: Routes = [
+    { path: ":identityId", component: ShowIdentityComponent },
+    { path: "", component: IdentitiesListComponent },
+];
+
+const itemsRoutes: Routes = [
+    { path: "", component: ItemsListComponent },
+];
 
 const paymentListingRoutes: Routes = [
     { path: "month", component: MonthlyPaymentsComponent },
@@ -35,10 +48,17 @@ const paymentsRoutes: Routes = [
     { path: "", component: ShowPaymentsComponent, children: paymentListingRoutes },
 ];
 
+const subscriptionsRoutes: Routes = [
+    { path: "", component: SubscriptionListComponent },
+];
+
 export const routes : Routes = [
     { path: "booking", component: BookingComponent },
+    { path: "identities", children: identitiesRoutes },
+    { path: "items", children: itemsRoutes },
     { path: "monthlybilling", component: MonthlyBillComponent },
     { path: "payments", children: paymentsRoutes },
+    { path: "subscriptions", children: subscriptionsRoutes },
     { path: "", redirect: "monthlybilling" },
     { path: "*", component: JSX_CreateElement("p", { textContent: "404" }) }
 ];

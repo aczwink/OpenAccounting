@@ -15,9 +15,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
-import { parse } from 'yaml'
 import { DBConnectionPool, DBFactory, DBResource, Injectable } from "acts-util-node";
-import fs from "fs";
 
 @Injectable
 export class DatabaseController
@@ -46,12 +44,6 @@ export class DatabaseController
     {
         const factory = new DBFactory;
         return factory.ParseDateTime("mysql", dt);
-    }
-    
-    public async QueryDB()
-    {
-        const dbText = await fs.promises.readFile("dist/db/db.yaml", "utf-8");
-        return parse(dbText);
     }
 
     //Private state

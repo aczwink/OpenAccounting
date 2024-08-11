@@ -19,35 +19,54 @@ import * as csv from "fast-csv";
 import { Readable } from 'stream';
 import { ParsedPayment } from "./ParsedPayment";
 import moment from "moment-timezone";
+import { PaymentType } from "../data-access/PaymentsController";
 
-export class GermanPayPalCSVParser
+export class GermanActivityPayPalCSVParser
 {
     //Public methods
     public async Parse(paymentsData: Buffer)
     {
         const stream = this.BufferToStream(paymentsData);
         const rows = await this.ParseCSVData(stream);
+        const filteredRows = rows.filter(x =>
+            //skip transactions that paypal withhold (assumption: they are released later anyways)
+            (this.ExtractField(x, "Typ", "string") !== "Allgemeine Einbehaltung")
+            &&
+            (this.ExtractField(x, "Typ", "string") !== "Freigabe allgemeiner Einbehaltung")
+            &&
+            //see https://developer.paypal.com/docs/reports/online-reports/activity-download/ and https://www.paypalobjects.com/webstatic/en_US/developer/docs/pdf/archive/PP_OrderMgmt_IntegrationGuide.pdf
+            //memo entries have no effect on balance since they are never completed transactions
+            (this.ExtractField(x, "Auswirkung auf Guthaben", "string") !== "Memo")
+        );
 
         const payments: ParsedPayment[] = [];
 
-        for (const row of rows)
+        for (const row of filteredRows)
         {
             const date = this.ExtractField(row, "Datum", "string");
             const dateParts = date.split(".");
             const reorderedDate = dateParts[2] + "-" + dateParts[1] + "-" + dateParts[0];
             const time = this.ExtractField(row, "Uhrzeit", "string");
-            const timeZone = this.ExtractField(row, "Zeitzone", "string");
+            const rawTimeZone = this.ExtractField(row, "Zeitzone", "string");
+            const timeZone = this.MapTimeZone(rawTimeZone);
 
             const converted = moment.tz(reorderedDate + "T" + time, timeZone).utc();
             const timeStamp = new Date(converted.toISOString());
 
+            const isInbound = this.ExtractField(row, "Auswirkung auf Guthaben", "string") === "Haben";
+            const type = (this.ExtractField(row, "Typ", "string") === "Allgemeine Abbuchung") ? PaymentType.Withdrawal : PaymentType.Normal;
+            const useSenderColumn = isInbound || (type === PaymentType.Withdrawal);
+
             payments.push({
+                type,
                 currency: this.ExtractField(row, "Währung", "string"),
                 timeStamp: new Date(timeStamp),
                 grossAmount: this.ExtractField(row, "Brutto", "german-decimal"),
-                transactionFee: this.ExtractField(row, "Entgelt", "german-decimal"),
-                senderId: this.ExtractField(row, "Absender E-Mail-Adresse", "string"),
-                transactionId: this.ExtractField(row, "Transaktionscode", "string")
+                transactionFee: this.ExtractField(row, "Gebühr", "german-decimal"),
+                participantId: this.ExtractField(row, useSenderColumn ? "Absender E-Mail-Adresse" : "Empfänger E-Mail-Adresse", "string"),
+                participantName: this.ExtractField(row, "Name", "string"),
+                transactionId: this.ExtractField(row, "Transaktionscode", "string"),
+                note: this.ExtractField(row, "Hinweis", "string")
             });
         }
 
@@ -65,33 +84,26 @@ export class GermanPayPalCSVParser
         return readable;
     }
 
-    private ExtractDateField(row: any, column: string, format: "DD.MM.YYYY")
-    {
-        const stringValue = this.ExtractField(row, column, "string");
-        switch(format)
-        {
-            case "DD.MM.YYYY":
-            {
-                const parts = stringValue.split(".").map(x => parseInt(x));
-                return {
-                    day: parts[0],
-                    month: parts[1],
-                    year: parts[2]
-                };
-            }
-        }
-    }
-
     private ExtractField(row: any, column: string, format: "german-decimal" | "string")
     {
         const stringValue = row[column] as string;
         switch(format)
         {
             case "german-decimal":
-                return stringValue.split(",").join(".");
+                return stringValue.split(",").map(x => x.ReplaceAll(".", "")).join(".");
             case "string":
                 return stringValue;
         }
+    }
+
+    private MapTimeZone(timeZone: string)
+    {
+        switch(timeZone)
+        {
+            case "CEST":
+                return "Europe/Berlin";
+        }
+        return timeZone;
     }
 
     private async ParseCSVData(stream: Readable)

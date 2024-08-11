@@ -16,12 +16,49 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { Component } from "acfrontend";
+import { Component, Injectable, JSX_CreateElement, ProgressSpinner } from "acfrontend";
+import { APIService } from "../APIService";
+import { YearMonthPicker } from "../YearMonthPicker";
+import { PaymentDTO } from "../../dist/api";
+import { PaymentsComponent } from "./PaymentsComponent";
 
+@Injectable
 export class MonthlyPaymentsComponent extends Component
 {
+    constructor(private apiService: APIService)
+    {
+        super();
+
+        const date = new Date();
+        this.year = date.getFullYear();
+        this.month = date.getMonth();
+        this.data = [];
+    }
+    
     protected Render(): RenderValue
     {
-        return "month";
+        return <fragment>
+            <YearMonthPicker month={this.month} onChanged={this.OnDateSelectionChanged.bind(this)} year={this.year} />
+            <button type="button" className="btn btn-primary" onclick={this.OnSearch.bind(this)}>Query</button>
+            {this.data === null ? <ProgressSpinner /> : <PaymentsComponent payments={this.data} />}
+        </fragment>;
+    }
+
+    //Private state
+    private year: number;
+    private month: number;
+    private data: PaymentDTO[] | null;
+
+    //Event handlers
+    private OnDateSelectionChanged(year: number, month: number)
+    {
+        this.year = year;
+        this.month = month;
+    }
+
+    private async OnSearch()
+    {
+        const response = await this.apiService.payments.get({ month: this.month, year: this.year });
+        this.data = response.data;
     }
 }

@@ -43,6 +43,11 @@ export class RootComponent extends Component
                     <NavItem route="/payments">Payments</NavItem>
                     <NavItem route="/monthlybilling">Monthly bill</NavItem>
                 </ul>
+                <ul className="nav nav-pills">
+                    <NavItem route="/identities">Identities</NavItem>
+                    <NavItem route="/items">Items</NavItem>
+                    <NavItem route="/subscriptions">Subscriptions</NavItem>
+                </ul>
             </Navigation>
             <div className="container-fluid">
                 <RouterComponent />
@@ -69,10 +74,14 @@ export class RootComponent extends Component
     override async OnInitiated(): Promise<void>
     {
         const response = await this.apiService.assets.get({ assetName: "name" });
-        this.title = response.data;
-        this.titleService.title = this.title;
+        if(response.statusCode === 200)
+        {
+            this.title = response.data;
+            this.titleService.title = this.title;
+        }
 
         const response2 = await this.apiService.assets.blob.get({ assetName: "logo" });
-        this.logo = await this.BlobToBase64(response2.data);
+        if(response2.statusCode === 200)
+                this.logo = await this.BlobToBase64(response2.data);
     }
 }

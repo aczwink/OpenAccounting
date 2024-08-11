@@ -15,7 +15,19 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
-import "./api/assets";
-import "./api/identities";
-import "./api/invoices";
-import "./api/payments";
+import { Injectable, Component, RouterButton, JSX_CreateElement, BootstrapIcon } from "acfrontend";
+import { APIService } from "../APIService";
+
+@Injectable
+export class SubscriptionListComponent extends Component
+{
+    constructor(private apiService: APIService)
+    {
+        super();
+    }
+    
+    protected Render(): RenderValue
+    {
+        return <RouterButton className="btn-primary" route="/subscriptions/add"><BootstrapIcon>plus</BootstrapIcon></RouterButton>;
+    }
+}

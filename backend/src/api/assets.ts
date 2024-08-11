@@ -28,7 +28,7 @@ class _api_
     
     @Get()
     public async QueryAsset(
-        @Query assetName: string
+        @Query assetName: "name"
     )
     {
         const asset = await this.assetController.QueryAsset(assetName);
@@ -37,7 +37,7 @@ class _api_
 
     @Get("blob")
     public async QueryAssetBinary(
-        @Query assetName: string
+        @Query assetName: "logo"
     )
     {
         const asset = await this.assetController.QueryAssetBinary(assetName);

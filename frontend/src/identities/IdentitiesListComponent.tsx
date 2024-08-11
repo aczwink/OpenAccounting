@@ -16,13 +16,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { Component, Injectable, JSX_CreateElement, ProgressSpinner } from "acfrontend";
+import { Anchor, Component, Injectable, JSX_CreateElement, ProgressSpinner } from "acfrontend";
+import { IdentityOverviewData } from "../../dist/api";
 import { APIService } from "../APIService";
-import { PaymentsComponent } from "./PaymentsComponent";
-import { PaymentDTO } from "../../dist/api";
 
 @Injectable
-export class OpenPaymentsComponent extends Component
+export class IdentitiesListComponent extends Component
 {
     constructor(private apiService: APIService)
     {
@@ -35,16 +34,30 @@ export class OpenPaymentsComponent extends Component
     {
         if(this.data === null)
             return <ProgressSpinner />;
-        return <PaymentsComponent payments={this.data} />
+
+        return <table className="table table-sm table-striped">
+            <thead>
+                <th>Name</th>
+            </thead>
+            <tbody>
+                {this.data.map(x => <tr>
+                    <td>
+                        <Anchor route={"/identities/" + x.id}>{x.name}</Anchor>
+                    </td>
+                </tr>)}
+            </tbody>
+            <caption>Showing {this.data.length} identities.</caption>
+        </table>;
     }
 
     //Private state
-    private data: PaymentDTO[] | null;
+    private data: IdentityOverviewData[] | null;
 
     //Event handlers
     override async OnInitiated(): Promise<void>
     {
-        const response = await this.apiService.payments.open.get();
-        this.data = response.data;    
+        const response = await this.apiService.identities.get();
+        response.data.SortBy(x => x.name);
+        this.data = response.data;
     }
 }

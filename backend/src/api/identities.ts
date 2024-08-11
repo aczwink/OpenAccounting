@@ -15,7 +15,30 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
-import "./api/assets";
-import "./api/identities";
-import "./api/invoices";
-import "./api/payments";
+
+import { APIController, Get, Path } from "acts-util-apilib";
+import { IdentitiesController } from "../data-access/IdentitiesController";
+
+@APIController("identities")
+class _api_
+{
+    constructor(private identitiesController: IdentitiesController)
+    {
+    }
+
+    @Get()
+    public async RequestIdentities()
+    {
+        const identities = await this.identitiesController.QueryIdentities();
+        return identities;
+    }
+    
+    @Get("{id}")
+    public async RequestIdentity(
+        @Path id: number
+    )
+    {
+        const identity = await this.identitiesController.QueryIdentity(id);
+        return identity;
+    }
+}
