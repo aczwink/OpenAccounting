@@ -16,9 +16,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { Injectable, Component, JSX_CreateElement, ProgressSpinner, FileDownloadService, InfoMessageManager } from "acfrontend";
-import { YearMonthPicker } from "./YearMonthPicker";
+import { Injectable, Component, JSX_CreateElement, ProgressSpinner, FileDownloadService, InfoMessageManager, DataLink } from "acfrontend";
 import { APIService } from "./APIService";
+import { AccountingMonthPicker, AccountingMonthSelection } from "./shared/AccountingMonthPicker";
 
 @Injectable
 export class MonthlyBillComponent extends Component
@@ -27,9 +27,7 @@ export class MonthlyBillComponent extends Component
     {
         super();
 
-        const date = new Date();
-        this.year = date.getFullYear();
-        this.month = date.getMonth();
+        this.accountingMonth = this.CreateStateLink<AccountingMonthSelection>({ month: 0, year: 0 });
         this.loading = false;
     }
 
@@ -37,14 +35,13 @@ export class MonthlyBillComponent extends Component
     {
         const color = this.loading ? "secondary" : "primary";
         return <fragment>
-            <YearMonthPicker month={this.month} onChanged={this.OnSelectionChanged.bind(this)} year={this.year} />
+            <AccountingMonthPicker selectionLink={this.accountingMonth} />
             <button type="button" className={"btn btn-" + color} onclick={this.OnGenerateInvoice.bind(this)} disabled={this.loading}>{this.loading ? <ProgressSpinner /> : "Generate"}</button>
         </fragment>;
     }
 
     //Private state
-    private year: number;
-    private month: number;
+    private accountingMonth: DataLink<AccountingMonthSelection>;
     private loading: boolean;
 
     //Event handlers
@@ -52,18 +49,13 @@ export class MonthlyBillComponent extends Component
     {
         this.loading = true;
 
-        const response = await this.apiService.invoices.get({ month: this.month, year: this.year });
+        const selection = this.accountingMonth.value;
+        const response = await this.apiService.invoices.get({ month: selection.month, year: selection.year });
         if(response.statusCode === 200)
-            this.fileDownloadService.DownloadBlobAsFile(response.data, "invoice-" + this.year + "-" + this.month + ".pdf");
+            this.fileDownloadService.DownloadBlobAsFile(response.data, "invoice-" + selection.year + "-" + selection.month + ".pdf");
         else
             this.infoMessageManager.ShowMessage("An error occured", { type: "danger" });
 
         this.loading = false;
-    }
-
-    private OnSelectionChanged(year: number, month: number)
-    {
-        this.year = year;
-        this.month = month;
     }
 }

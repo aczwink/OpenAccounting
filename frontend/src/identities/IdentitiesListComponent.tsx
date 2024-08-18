@@ -16,48 +16,42 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { Anchor, Component, Injectable, JSX_CreateElement, ProgressSpinner } from "acfrontend";
+import { Anchor, Component, Injectable, JSX_CreateElement, Use, UseAPI } from "acfrontend";
 import { IdentityOverviewData } from "../../dist/api";
 import { APIService } from "../APIService";
 
 @Injectable
-export class IdentitiesListComponent extends Component
-{
-    constructor(private apiService: APIService)
-    {
-        super();
-
-        this.data = null;
-    }
-    
+class InternalIdentitiesListComponent extends Component<{ identities: IdentityOverviewData[]; }>
+{    
     protected Render(): RenderValue
     {
-        if(this.data === null)
-            return <ProgressSpinner />;
-
-        return <table className="table table-sm table-striped">
+        return <div className="row justify-content-center">
+            <div className="col-auto">
+            <table className="table table-sm table-striped">
             <thead>
-                <th>Name</th>
+                <th>First name</th>
+                <th>Last name</th>
             </thead>
             <tbody>
-                {this.data.map(x => <tr>
+                {this.input.identities.map(x => <tr>
                     <td>
-                        <Anchor route={"/identities/" + x.id}>{x.name}</Anchor>
+                        <Anchor route={"/identities/" + x.id}>{x.firstName}</Anchor>
+                    </td>
+                    <td>
+                        <Anchor route={"/identities/" + x.id}>{x.lastName}</Anchor>
                     </td>
                 </tr>)}
             </tbody>
-            <caption>Showing {this.data.length} identities.</caption>
-        </table>;
+            <caption>Showing {this.input.identities.length} identities.</caption>
+        </table>
+            </div>
+        </div>;
+        ;
     }
+}
 
-    //Private state
-    private data: IdentityOverviewData[] | null;
-
-    //Event handlers
-    override async OnInitiated(): Promise<void>
-    {
-        const response = await this.apiService.identities.get();
-        response.data.SortBy(x => x.name);
-        this.data = response.data;
-    }
+export function IdentitiesListComponent()
+{
+    const apiState = UseAPI(() => Use(APIService).identities.get(), data => data.SortBy(x => x.lastName));
+    return apiState.success ? <InternalIdentitiesListComponent identities={apiState.data} /> : apiState.fallback;
 }

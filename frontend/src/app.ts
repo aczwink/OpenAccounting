@@ -16,14 +16,31 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import {App} from "acfrontend";
+import { BootstrapApp, I18nManager, RootInjector } from "acfrontend";
 import { RootComponent } from "./RootComponent";
 import { routes } from "./routing";
 
-const app = new App({
-    mountPoint: document.body,
-    rootComponentClass: RootComponent,
-    routes: routes,
-    title: "OpenAccounting",
-    version: "0.1 beta"
-});
+async function SetupLanguages()
+{
+    const i18n = RootInjector.Resolve(I18nManager);
+
+    i18n.AddLanguage("en", await import("../dist/en.json"));
+    i18n.AddLanguage("de", await import("../dist/de.json"), "en");
+
+    i18n.activeLanguage = "de";
+}
+
+async function Bootstrap()
+{
+    await SetupLanguages();
+
+    BootstrapApp({
+        mountPoint: document.body,
+        rootComponentClass: RootComponent,
+        routes: routes,
+        title: "OpenAccounting",
+        version: "0.1 beta"
+    });
+}
+
+Bootstrap();

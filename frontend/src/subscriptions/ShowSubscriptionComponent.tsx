@@ -15,21 +15,25 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
+import { JSX_CreateElement, JSX_Fragment, Use, UseAPI, UseRouteParameter } from "acfrontend";
+import { APIService } from "../APIService";
+import { Subscription } from "../../dist/api";
 
-import { BootstrapIcon, Component, JSX_CreateElement, NavItem, RouterButton, RouterComponent } from "acfrontend";
-
-export class ShowPaymentsComponent extends Component
+function InternalShowSubscriptionComponent(input: { subscription: Subscription })
 {
-    protected Render(): RenderValue
-    {
-        return <fragment>
-            <ul className="nav nav-tabs justify-content-center">
-                <NavItem route="/payments/open">Open Payments</NavItem>
-                <NavItem route="/payments/month">Payments per month</NavItem>
-            </ul>
-            <RouterComponent />
-            <br />
-            <RouterButton color="primary" route="/payments/import"><BootstrapIcon>upload</BootstrapIcon> Import</RouterButton>
-        </fragment>;
-    }
+    return <>
+        <h3>{input.subscription.name}</h3>
+
+        <ul>
+            <li>Price: {input.subscription.price}</li>
+        </ul>
+    </>;
+}
+
+export function ShowSubscriptionComponent()
+{
+    const subscriptionId = UseRouteParameter("route", "subscriptionId", "unsigned");
+
+    const apiState = UseAPI(() => Use(APIService).subscriptions._any_.get(subscriptionId));
+    return apiState.success ? <InternalShowSubscriptionComponent subscription={apiState.data} /> : apiState.fallback;
 }

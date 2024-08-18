@@ -16,20 +16,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { BootstrapIcon, Component, JSX_CreateElement, NavItem, RouterButton, RouterComponent } from "acfrontend";
+import { Injectable } from "acts-util-node";
+import { PaymentsController } from "../data-access/PaymentsController";
+import { ItemsController } from "../data-access/ItemsController";
 
-export class ShowPaymentsComponent extends Component
+@Injectable
+export class PaymentAssociationService
 {
-    protected Render(): RenderValue
+    constructor(private paymentsController: PaymentsController, private itemsController: ItemsController)
     {
-        return <fragment>
-            <ul className="nav nav-tabs justify-content-center">
-                <NavItem route="/payments/open">Open Payments</NavItem>
-                <NavItem route="/payments/month">Payments per month</NavItem>
-            </ul>
-            <RouterComponent />
-            <br />
-            <RouterButton color="primary" route="/payments/import"><BootstrapIcon>upload</BootstrapIcon> Import</RouterButton>
-        </fragment>;
+    }
+
+    //Public methods
+    public async Associate(paymentId: number, itemId: number)
+    {
+        await this.paymentsController.AddAssociation(paymentId, itemId);
+        await this.itemsController.RemoveItemFromOpenItemsList(itemId);
+        await this.paymentsController.RemovePaymentFromOpenPaymentsList(paymentId);
     }
 }

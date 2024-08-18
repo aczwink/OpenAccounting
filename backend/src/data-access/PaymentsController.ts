@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { Injectable } from "acts-util-node";
+import { DateTime, Injectable } from "acts-util-node";
 import { DatabaseController } from "./DatabaseController";
 
 export enum PaymentType
@@ -31,7 +31,7 @@ interface PaymentCreationData
     paymentServiceId: number;
     externalTransactionId: string;
     identityId: number;
-    timestamp: Date;
+    timestamp: DateTime;
     grossAmount: string;
     transactionFee: string;
     currency: string;
@@ -63,6 +63,12 @@ export class PaymentsController
     }
 
     //Public methods
+    public async AddAssociation(paymentId: number, itemId: number)
+    {
+        const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
+        const result = await exector.InsertRow("payments_items", { paymentId, itemId });
+    }
+
     public async AddPayment(payment: PaymentCreationData)
     {
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
@@ -74,25 +80,36 @@ export class PaymentsController
     public async FindPayment(paymentServiceId: number, externalTransactionId: string)
     {
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
-        const row = await exector.SelectOne("SELECT * FROM payments WHERE paymentServiceId = ? AND externalTransactionId = ?", paymentServiceId, externalTransactionId);
-        if(row === undefined)
-            return undefined;
+        const row = await exector.SelectOne<Payment>("SELECT * FROM payments WHERE paymentServiceId = ? AND externalTransactionId = ?", paymentServiceId, externalTransactionId);
+        return row;
+    }
 
-        return this.MapPayment(row);
+    public async QueryAssociatedItems(paymentId: number)
+    {
+        const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
+        const rows = await exector.Select("SELECT itemId FROM payments_items WHERE paymentId = ?", paymentId);
+        return rows.map(x => x.itemId as number);
+    }
+
+    public async QueryPayment(paymentId: number)
+    {
+        const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
+        const row = await exector.SelectOne<Payment>("SELECT * FROM payments WHERE id = ?", paymentId);
+        return row;
     }
 
     public async QueryPayments(month: number, year: number)
     {
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
-        const rows = await exector.Select("SELECT * FROM payments WHERE YEAR(timestamp) = ? AND MONTH(timestamp) = ?", year, month);
-        return this.MapPayments(rows);
+        const rows = await exector.Select<Payment>("SELECT * FROM payments WHERE YEAR(timestamp) = ? AND MONTH(timestamp) = ?", year, month);
+        return rows;
     }
 
     public async QueryOpenPayments()
     {
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
-        const rows = await exector.Select("SELECT p.* FROM payments p INNER JOIN payments_open po ON po.paymentId = p.id");
-        return this.MapPayments(rows);
+        const rows = await exector.Select<Payment>("SELECT p.* FROM payments p INNER JOIN payments_open po ON po.paymentId = p.id LIMIT 50");
+        return rows;
     }
 
     public async QueryServices()
@@ -108,27 +125,9 @@ export class PaymentsController
         return row!;
     }
 
-    //Private methods
-    private MapPayment(row: any)
+    public async RemovePaymentFromOpenPaymentsList(paymentId: number)
     {
-        const result: Payment = {
-            type: row.type,
-            currency: row.currency,
-            externalTransactionId: row.externalTransactionId,
-            grossAmount: row.grossAmount,
-            id: row.id,
-            paymentServiceId: row.paymentServiceId,
-            identityId: row.identityId,
-            timestamp: this.dbController.ParseDateTime(row.timestamp),
-            transactionFee: row.transactionFee,
-            note: row.note
-        };
-
-        return result;
-    }
-
-    private MapPayments(rows: any[])
-    {
-        return rows.map(this.MapPayment.bind(this));
+        const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
+        await exector.DeleteRows("payments_open", "paymentId = ?", paymentId);
     }
 }

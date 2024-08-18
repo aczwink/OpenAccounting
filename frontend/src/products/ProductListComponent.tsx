@@ -15,24 +15,19 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
+import { Injectable, Component, RouterButton, JSX_CreateElement, BootstrapIcon } from "acfrontend";
+import { APIService } from "../APIService";
 
-import { Component, FormField, JSX_CreateElement, NumberSpinner } from "acfrontend";
-
-export class YearMonthPicker extends Component<{ year: number; month: number; onChanged: (year: number, month: number) => void}>
+@Injectable
+export class ProductListComponent extends Component
 {
+    constructor(private apiService: APIService)
+    {
+        super();
+    }
+    
     protected Render(): RenderValue
     {
-        return <div className="row">
-            <div className="col">
-                <FormField title="Year">
-                    <NumberSpinner value={this.input.year} onChanged={newValue => this.input.onChanged(newValue, this.input.month)} step={1} />
-                </FormField>
-            </div>
-            <div className="col">
-                <FormField title="Month">
-                    <NumberSpinner value={this.input.month} onChanged={newValue => this.input.onChanged(this.input.year, newValue)} step={1} />
-                </FormField>
-            </div>
-        </div>;
+        return <RouterButton color="primary" route="/products/add"><BootstrapIcon>plus</BootstrapIcon></RouterButton>;
     }
 }

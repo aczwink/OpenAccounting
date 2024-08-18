@@ -28,12 +28,22 @@ interface PaymentAccountAssociation
 interface IdentityOverviewData
 {
     id: number;
-    name: string;
+    firstName: string;
+    lastName: string;
 }
 
 interface Identity extends IdentityOverviewData
 {
     paymentAccounts: PaymentAccountAssociation[];
+    notes: string;
+}
+
+interface SubscriptionAssignment
+{
+    identityId: number;
+    subscriptionId: number;
+    begin: string;
+    end: string | null;
 }
 
 @Injectable
@@ -54,10 +64,22 @@ export class IdentitiesController
         });
     }
 
-    public async CreateIdentity(name: string)
+    public async AssignSubscription(identityId: number, subscriptionId: number, startYear: number, startMonth: number)
     {
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
-        const result = await exector.InsertRow("identities", { name });
+        await exector.InsertRow("identities_subscriptions", {
+            identityId,
+            subscriptionId,
+            begin: this.dbController.FirstDayOf(startYear, startMonth),
+            end: null
+        });
+    }
+
+    public async CreateIdentity(name: string)
+    {
+        const parts = name.split(" ");
+        const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
+        const result = await exector.InsertRow("identities", { firstName: parts.slice(0, parts.length - 1).join(" "), lastName: parts[parts.length - 1], notes: "" });
         return result.insertId;
     }
 
@@ -71,7 +93,7 @@ export class IdentitiesController
     public async QueryIdentity(id: number)
     {
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
-        const row = await exector.SelectOne("SELECT id, name FROM identities WHERE id = ?", id);
+        const row = await exector.SelectOne("SELECT id, firstName, lastName, notes FROM identities WHERE id = ?", id);
 
         if(row === undefined)
             return undefined;
@@ -80,8 +102,10 @@ export class IdentitiesController
 
         const result: Identity = {
             id: row.id,
-            name: row.name,
-            paymentAccounts: rows
+            firstName: row.firstName,
+            lastName: row.lastName,
+            paymentAccounts: rows,
+            notes: row.notes
         };
 
         return result;
@@ -90,7 +114,46 @@ export class IdentitiesController
     public async QueryIdentities()
     {
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
-        const rows = await exector.Select<IdentityOverviewData>("SELECT id, name FROM identities");
+        const rows = await exector.Select<IdentityOverviewData>("SELECT id, firstName, lastName FROM identities");
         return rows;
+    }
+
+    public async QueryActiveSubscriptionAssignments(year: number, month: number)
+    {
+        const query = `
+        SELECT *
+        FROM identities_subscriptions
+        WHERE
+            (begin <= ?)
+            AND
+            (
+                (end IS NULL)
+                OR
+                (end >= ?)
+            )
+        `;
+        
+        const day = this.dbController.FirstDayOf(year, month)
+        const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
+        return await exector.Select<SubscriptionAssignment>(query, day, day);
+    }
+
+    public async QuerySubscriptions(identityId: number)
+    {
+        const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
+        const rows = await exector.Select("SELECT * FROM identities_subscriptions WHERE identityId = ?", identityId);
+
+        return rows.map<SubscriptionAssignment>(row => ({
+            identityId: row.identityId,
+            begin: row.begin,
+            end: row.end,
+            subscriptionId: row.subscriptionId
+        }));        
+    }
+
+    public async UpdateIdentity(identityId: number, data: { firstName: string; lastName: string; notes: string })
+    {
+        const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
+        await exector.UpdateRows("identities", data, "id = ?", identityId);
     }
 }

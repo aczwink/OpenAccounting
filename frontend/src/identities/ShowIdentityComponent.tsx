@@ -16,19 +16,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { Component, Injectable, JSX_CreateElement, ProgressSpinner, RouterState } from "acfrontend";
-import { Identity } from "../../dist/api";
+import { APICallState, APIStateHandler, Anchor, BootstrapIcon, CallAPI, Component, InitAPIState, Injectable, JSX_CreateElement, JSX_Fragment, PopupManager, ProgressSpinner, PushButton, RouteParamProperty, State, TitleService } from "acfrontend";
+import { Identity, SubscriptionAssignment } from "../../dist/api";
 import { CachedAPIService } from "../CachedAPIService";
 import { PaymentServiceComponent } from "../payments/PaymentServiceComponent";
+import { AssignSubscriptionComponent } from "./AssignSubscriptionComponent";
+import { APIService } from "../APIService";
+import { SubscriptionReferenceComponent } from "../subscriptions/SubscriptionReferenceComponent";
 
 @Injectable
 export class ShowIdentityComponent extends Component
 {
-    constructor(private cachedAPIService: CachedAPIService, private routerState: RouterState)
+    constructor(private cachedAPIService: CachedAPIService, @RouteParamProperty("identityId") private identityId: number, private titleService: TitleService, private popupManager: PopupManager, private apiService: APIService)
     {
         super();
 
         this.data = null;
+        this.apiStates = this.CreateState({
+            loadSubscriptionsState: InitAPIState<SubscriptionAssignment[]>()
+        })
     }
     
     protected Render(): RenderValue
@@ -37,32 +43,92 @@ export class ShowIdentityComponent extends Component
             return <ProgressSpinner />;
 
         return <fragment>
-            <h3>{this.data.name}</h3>
+            <h3>{this.data.firstName} {this.data.lastName} <Anchor route={"/identities/edit/" + this.identityId}><BootstrapIcon>pencil</BootstrapIcon></Anchor></h3>
+            <p>{this.data.notes}</p>
 
             <hr />
             <h5>Payment accounts</h5>
             <table className="table table-sm table-striped">
-            <thead>
-                <th>Payment service</th>
-                <th>Account</th>
-            </thead>
-            <tbody>
-                {this.data.paymentAccounts.map(x => <tr>
-                    <td><PaymentServiceComponent paymentServiceId={x.paymentServiceId} /></td>
-                    <td>{x.externalAccount}</td>
-                </tr>)}
-            </tbody>
-        </table>
+                <thead>
+                    <th>Payment service</th>
+                    <th>Account</th>
+                </thead>
+                <tbody>
+                    {this.data.paymentAccounts.map(x => <tr>
+                        <td><PaymentServiceComponent paymentServiceId={x.paymentServiceId} /></td>
+                        <td>{x.externalAccount}</td>
+                    </tr>)}
+                </tbody>
+            </table>
+
+            <hr />
+            {this.RenderSubscriptions()}
         </fragment>;
     }
 
     //Private state
     private data: Identity | null;
+    private apiStates: State<{ loadSubscriptionsState: APICallState<SubscriptionAssignment[]> }>;
+
+    //Private methods
+    private async LoadData()
+    {
+        this.apiStates.loadSubscriptionsState = InitAPIState();
+        CallAPI(() => this.apiService.identities._any_.subscriptions.get(this.identityId), this.apiStates.links.loadSubscriptionsState);
+    }
+
+    private RenderSubscriptionEnd(end: string | null)
+    {
+        if(end === null)
+        {
+            return <>
+                <i>ongoing</i>
+                TODO: ability to terminate
+            </>;
+        }
+        return end;
+    }
+
+    private RenderSubscriptions()
+    {
+        const apiState = this.apiStates.loadSubscriptionsState;
+        return <>
+            <h5>Subscriptions</h5>
+            {apiState.success ? this.RenderSubscriptionsTable(apiState.data) : <APIStateHandler state={apiState} />}
+            <PushButton color="primary" enabled={true} onActivated={this.OnAddSubscription.bind(this)}>Assign subscription</PushButton>
+        </>;
+    }
+
+    private RenderSubscriptionsTable(subscriptions: SubscriptionAssignment[])
+    {
+        return <table className="table table-sm table-striped">
+            <thead>
+                <th>Subscription</th>
+                <th>Start date</th>
+                <th>End date</th>
+            </thead>
+            <tbody>
+                {subscriptions.map(x => <tr>
+                    <td><SubscriptionReferenceComponent id={x.subscriptionId} /></td>
+                    <td>{x.begin}</td>
+                    <td>{this.RenderSubscriptionEnd(x.end)}</td>
+                </tr>)}
+            </tbody>
+        </table>;
+    }
 
     //Event handlers
+    private OnAddSubscription()
+    {
+        const dialogRef = this.popupManager.OpenDialog(<AssignSubscriptionComponent identityId={this.identityId} />, { title: "Assign subscription" });
+        dialogRef.onClose.Subscribe(this.LoadData.bind(this));
+    }
+    
     override async OnInitiated(): Promise<void>
     {
-        const id = parseInt(this.routerState.routeParams.identityId!);
-        this.data = await this.cachedAPIService.RequestIdentity(id);
+        this.data = await this.cachedAPIService.RequestIdentity(this.identityId);
+        this.titleService.title = this.data.firstName + " " + this.data.lastName;
+
+        await this.LoadData();
     }
 }

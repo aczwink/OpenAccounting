@@ -16,20 +16,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { BootstrapIcon, Component, JSX_CreateElement, NavItem, RouterButton, RouterComponent } from "acfrontend";
+import { PaymentType } from "../../dist/api";
 
-export class ShowPaymentsComponent extends Component
+export function PaymentTypeToString(type: PaymentType, grossAmount: string)
 {
-    protected Render(): RenderValue
+    switch(type)
     {
-        return <fragment>
-            <ul className="nav nav-tabs justify-content-center">
-                <NavItem route="/payments/open">Open Payments</NavItem>
-                <NavItem route="/payments/month">Payments per month</NavItem>
-            </ul>
-            <RouterComponent />
-            <br />
-            <RouterButton color="primary" route="/payments/import"><BootstrapIcon>upload</BootstrapIcon> Import</RouterButton>
-        </fragment>;
+        case PaymentType.Normal:
+            return grossAmount.startsWith("-") ? "Outbound" : "Inbound";
+        case PaymentType.Withdrawal:
+            return "Withdrawal";
     }
 }

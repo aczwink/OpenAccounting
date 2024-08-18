@@ -40,10 +40,9 @@ export class DatabaseController
         return instance.value.CreateAnyConnectionQueryExecutor();
     }
 
-    public ParseDateTime(dt: string)
+    public FirstDayOf(startYear: number, startMonth: number)
     {
-        const factory = new DBFactory;
-        return factory.ParseDateTime("mysql", dt);
+        return startYear.toString() + "-" + startMonth.toString() + "-01"
     }
 
     //Private state

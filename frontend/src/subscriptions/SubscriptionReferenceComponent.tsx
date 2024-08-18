@@ -16,20 +16,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { BootstrapIcon, Component, JSX_CreateElement, NavItem, RouterButton, RouterComponent } from "acfrontend";
+import { Anchor, JSX_CreateElement, ProgressSpinner, Use, UseEffectOnce, UseState } from "acfrontend";
+import { CachedAPIService } from "../CachedAPIService";
+import { Subscription } from "../../dist/api";
 
-export class ShowPaymentsComponent extends Component
+export function SubscriptionReferenceComponent(input: { id: number })
 {
-    protected Render(): RenderValue
-    {
-        return <fragment>
-            <ul className="nav nav-tabs justify-content-center">
-                <NavItem route="/payments/open">Open Payments</NavItem>
-                <NavItem route="/payments/month">Payments per month</NavItem>
-            </ul>
-            <RouterComponent />
-            <br />
-            <RouterButton color="primary" route="/payments/import"><BootstrapIcon>upload</BootstrapIcon> Import</RouterButton>
-        </fragment>;
-    }
+    const state = UseState({
+        subscription: null as Subscription | null
+    });
+    UseEffectOnce(async () => state.subscription = await Use(CachedAPIService).RequestSubscription(input.id));
+
+    if(state.subscription === null)
+        return <ProgressSpinner />;
+    return <Anchor route={"/subscriptions/" + state.subscription.id}>{state.subscription.name}</Anchor>;
 }

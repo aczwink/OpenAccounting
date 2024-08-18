@@ -34,7 +34,7 @@ export class IdentityReferenceComponent extends Component<{ identityId: number }
     {
         if(this.data === null)
             return <ProgressSpinner />;
-        return <Anchor route={"/identities/" + this.data.id}>{this.data.name}</Anchor>;
+        return <Anchor route={"/identities/" + this.data.id}>{this.data.firstName} {this.data.lastName}</Anchor>;
     }
 
     //Private state

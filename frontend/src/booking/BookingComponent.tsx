@@ -15,19 +15,18 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
-import { Injectable, Component, RouterButton, JSX_CreateElement, BootstrapIcon } from "acfrontend";
-import { APIService } from "../APIService";
 
-@Injectable
-export class ItemsListComponent extends Component
+import { I18n, JSX_CreateElement, JSX_Fragment, NavItem, RouterComponent } from "acfrontend";
+
+export function BookingComponent()
 {
-    constructor(private apiService: APIService)
-    {
-        super();
-    }
-    
-    protected Render(): RenderValue
-    {
-        return <RouterButton className="btn-primary" route="/items/add"><BootstrapIcon>plus</BootstrapIcon></RouterButton>;
-    }
+    return <>
+        <ul className="nav nav-tabs justify-content-center">
+            <NavItem route="/booking/open"><I18n key="nav.open_items" /></NavItem>
+            <NavItem route="/booking/month">Items per month</NavItem>
+            <NavItem route="/booking/accountingmonths">Accounting months</NavItem>
+        </ul>
+        <RouterComponent />
+        <br />
+    </>;
 }

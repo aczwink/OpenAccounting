@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { APIController, Get, Path } from "acts-util-apilib";
+import { APIController, BodyProp, Get, Path, Post, Put } from "acts-util-apilib";
 import { IdentitiesController } from "../data-access/IdentitiesController";
 
 @APIController("identities")
@@ -32,13 +32,51 @@ class _api_
         const identities = await this.identitiesController.QueryIdentities();
         return identities;
     }
-    
-    @Get("{id}")
+}
+
+@APIController("identities/{identityId}")
+class _api2_
+{
+    constructor(private identitiesController: IdentitiesController)
+    {
+    }
+
+    @Get()
     public async RequestIdentity(
-        @Path id: number
+        @Path identityId: number
     )
     {
-        const identity = await this.identitiesController.QueryIdentity(id);
+        const identity = await this.identitiesController.QueryIdentity(identityId);
         return identity;
+    }
+
+    @Put()
+    public async UpdateIdentity(
+        @Path identityId: number,
+        @BodyProp newFirstName: string,
+        @BodyProp newLastName: string,
+        @BodyProp newNotes: string
+    )
+    {
+        await this.identitiesController.UpdateIdentity(identityId, { firstName: newFirstName, lastName: newLastName, notes: newNotes });
+    }
+
+    @Get("subscriptions")
+    public async RequestSubscriptions(
+        @Path identityId: number
+    )
+    {
+        return await this.identitiesController.QuerySubscriptions(identityId);
+    }
+
+    @Post("subscriptions")
+    public async AssignSubscription(
+        @Path identityId: number,
+        @BodyProp subscriptionId: number,
+        @BodyProp startYear: number,
+        @BodyProp startMonth: number
+    )
+    {
+        await this.identitiesController.AssignSubscription(identityId, subscriptionId, startYear, startMonth);
     }
 }

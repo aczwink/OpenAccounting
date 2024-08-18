@@ -16,13 +16,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
+import { DateTime } from "acts-util-node";
 import { PaymentType } from "../data-access/PaymentsController";
 
 export interface ParsedPayment
 {
     type: PaymentType;
     currency: string;
-    timeStamp: Date;
+    timeStamp: DateTime;
     grossAmount: string;
     transactionFee: string;
     participantId: string;

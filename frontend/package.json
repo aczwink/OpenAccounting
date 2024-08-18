@@ -4,7 +4,7 @@
   "description": "Software for managing sales, dispositions, payments etc.",
   "main": "index.js",
   "scripts": {
-    "generate-api": "npx acts-util-apilib",
+    "generate-api-and-create-dictionaries": "npx acts-util-apilib && ./build_dictionaries.sh",
     "dev": "webpack serve --open"
   },
   "repository": {
@@ -22,9 +22,11 @@
     "dotenv-webpack": "^8.1.0",
     "source-map-loader": "^5.0.0",
     "ts-loader": "^9.5.1",
+    "typescript": "^5.5.4",
     "webpack": "^5.93.0",
     "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^5.0.4"
+    "webpack-dev-server": "^5.0.4",
+    "js-yaml": "^4.1.0"
   },
   "dependencies": {
     "acfrontend": "*"

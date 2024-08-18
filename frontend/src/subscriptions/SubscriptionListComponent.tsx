@@ -15,19 +15,35 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
-import { Injectable, Component, RouterButton, JSX_CreateElement, BootstrapIcon } from "acfrontend";
+
+import { Anchor, BootstrapIcon, JSX_CreateElement, RouterButton, Use, UseAPI } from "acfrontend";
+import { Subscription } from "../../dist/api";
 import { APIService } from "../APIService";
 
-@Injectable
-export class SubscriptionListComponent extends Component
+function InternalSubscriptionListComponent(input: { subscriptions: Subscription[] })
 {
-    constructor(private apiService: APIService)
-    {
-        super();
-    }
-    
-    protected Render(): RenderValue
-    {
-        return <RouterButton className="btn-primary" route="/subscriptions/add"><BootstrapIcon>plus</BootstrapIcon></RouterButton>;
-    }
+    return <table className="table table-sm table-striped">
+        <thead>
+            <th>Name</th>
+            <th>Price</th>
+        </thead>
+        <tbody>
+            {input.subscriptions.map(x => <tr>
+            <td>
+                <Anchor route={"/subscriptions/" + x.id}>{x.name}</Anchor>
+            </td>
+            <td>{x.price}</td>
+        </tr>)}
+    </tbody>
+    <caption>Showing {input.subscriptions.length} subscriptions.</caption>
+</table>;
+}
+
+export function SubscriptionListComponent()
+{
+    const apiState = UseAPI(() => Use(APIService).subscriptions.get(), data => data.SortBy(x => x.price));
+    return <div className="container">
+        {apiState.success ? <InternalSubscriptionListComponent subscriptions={apiState.data} /> : apiState.fallback}
+        <RouterButton color="primary" route="/subscriptions/add"><BootstrapIcon>plus</BootstrapIcon></RouterButton>
+    </div>;
 }

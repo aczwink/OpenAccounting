@@ -16,12 +16,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { Component } from "acfrontend";
+import { JSX_CreateElement } from "acfrontend";
 
-export class BookingComponent extends Component
+export function RenderMonetaryValue(value: string)
 {
-    protected Render(): RenderValue
-    {
-        return "TODO";
-    }
+    if(value.startsWith("-"))
+        return <span className="text-danger">{value}</span>;
+    return value;
 }

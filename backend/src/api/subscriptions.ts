@@ -16,32 +16,34 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { Injectable } from "acts-util-node";
-import { AssetController } from "../data-access/AssetController";
+import { APIController, Body, Get, Path, Post } from "acts-util-apilib";
+import { SubscriptionCreationData, SubscriptionsController } from "../data-access/SubscriptionsController";
 
-@Injectable
-export class LanguageService
+@APIController("subscriptions")
+class _api_
 {
-    constructor(private assetController: AssetController)
+    constructor(private subscriptionsController: SubscriptionsController)
     {
     }
 
-    //Public methods
-    public async GetBookingTimeZone()
+    @Get()
+    public async RequestSubscriptions()
     {
-        const tz = await this.assetController.QueryAsset("bookingTimeZone");
-        return tz!;
+        return await this.subscriptionsController.QuerySubscriptions();
     }
 
-    public async GetBCP47Tag()
+    @Post()
+    public async CreateSubscription(
+        @Body data: SubscriptionCreationData)
     {
-        const lang = await this.assetController.QueryAsset("language");
-        switch(lang)
-        {
-            case "de":
-                return "de-DE";
-            default:
-                throw new Error("unsupported language: " + lang);
-        }
+        return this.subscriptionsController.CreateSubscription(data);
+    }
+
+    @Get("{id}")
+    public async RequestSubscription(
+        @Path id: number
+    )
+    {
+        return await this.subscriptionsController.QuerySubscription(id);
     }
 }

@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { Component, Injectable, JSX_CreateElement, NavItem, Navigation, ProgressSpinner, RouterComponent, TitleService } from "acfrontend";
+import { BootstrapIcon, Component, Injectable, JSX_CreateElement, NavItem, Navigation, ProgressSpinner, RouterComponent, TitleService } from "acfrontend";
 import { APIService } from "./APIService";
 
 @Injectable
@@ -39,14 +39,14 @@ export class RootComponent extends Component
                     {this.title === null ? <ProgressSpinner /> : this.title}
                 </div>
                 <ul className="nav nav-pills">
-                    <NavItem route="/booking">Booking</NavItem>
-                    <NavItem route="/payments">Payments</NavItem>
-                    <NavItem route="/monthlybilling">Monthly bill</NavItem>
+                    <NavItem route="/booking"><BootstrapIcon>bank</BootstrapIcon> Booking</NavItem>
+                    <NavItem route="/payments"><BootstrapIcon>credit-card</BootstrapIcon> Payments</NavItem>
+                    <NavItem route="/monthlybilling"><BootstrapIcon>graph-up</BootstrapIcon> Monthly bill</NavItem>
                 </ul>
                 <ul className="nav nav-pills">
-                    <NavItem route="/identities">Identities</NavItem>
-                    <NavItem route="/items">Items</NavItem>
-                    <NavItem route="/subscriptions">Subscriptions</NavItem>
+                    <NavItem route="/identities"><BootstrapIcon>people</BootstrapIcon> Identities</NavItem>
+                    <NavItem route="/products"><BootstrapIcon>cart</BootstrapIcon> Products & Services</NavItem>
+                    <NavItem route="/subscriptions"><BootstrapIcon>arrow-repeat</BootstrapIcon> Subscriptions</NavItem>
                 </ul>
             </Navigation>
             <div className="container-fluid">

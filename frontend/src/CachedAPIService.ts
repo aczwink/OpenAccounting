@@ -18,7 +18,7 @@
 
 import { Injectable } from "acfrontend";
 import { APIService } from "./APIService";
-import { Identity, PaymentService } from "../dist/api";
+import { FullPaymentServiceData, Identity, Subscription } from "../dist/api";
 import { NumberDictionary } from "../../../ACTS-Util/core/dist/Dictionary";
 
 @Injectable
@@ -26,11 +26,36 @@ export class CachedAPIService
 {
     constructor(private apiService: APIService)
     {
-        this.cachedServices = null;
+        this.cachedAccountingMonths = {};
+        this.cachedAccountingYears = null;
+        this.cachedServices = {};
         this.cachedIdentities = {};
+        this.cachedSubscriptions = {};
     }
 
     //Public methods
+    public async RequestAccountingMonthsOfYear(year: number)
+    {
+        const months = this.cachedAccountingMonths[year];
+        if(months === undefined)
+        {
+            const response = await this.apiService.accounting.years._any_.months.get(year);
+            this.cachedAccountingMonths[year] = response.data;
+            return response.data;
+        }
+        return months;
+    }
+
+    public async RequestAccountingYears()
+    {
+        if(this.cachedAccountingYears === null)
+        {
+            const response = await this.apiService.accounting.years.get();
+            this.cachedAccountingYears = response.data;
+        }
+        return this.cachedAccountingYears;
+    }
+
     public async RequestIdentity(id: number)
     {
         const identity = this.cachedIdentities[id];
@@ -48,15 +73,35 @@ export class CachedAPIService
 
     public async RequestPaymentService(id: number)
     {
-        if(this.cachedServices === null)
+        const service = this.cachedServices[id];
+        if(service === undefined)
         {
-            const response = await this.apiService.payments.services.get();
-            this.cachedServices = response.data;
+            const response = await this.apiService.payments.services._any_.get(id);
+            this.cachedServices[id] = response.data;
+            return response.data;
         }
-        return this.cachedServices.find(x => x.id === id)!;
+        return service;
+    }
+
+    public async RequestSubscription(id: number)
+    {
+        const subscription = this.cachedSubscriptions[id];
+        if(subscription === undefined)
+        {
+            const response = await this.apiService.subscriptions._any_.get(id);
+            if(response.statusCode === 200)
+            {
+                this.cachedSubscriptions[id] = response.data;
+                return response.data;
+            }
+        }
+        return subscription!;
     }
 
     //State
-    private cachedServices: PaymentService[] | null;
+    private cachedAccountingMonths: NumberDictionary<number[]>;
+    private cachedAccountingYears: number[] | null;
+    private cachedServices: NumberDictionary<FullPaymentServiceData>;
     private cachedIdentities: NumberDictionary<Identity>;
+    private cachedSubscriptions: NumberDictionary<Subscription>;
 }

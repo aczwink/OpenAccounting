@@ -16,11 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { APIController, FormField, Get, Post, Query } from "acts-util-apilib";
+import { APIController, BodyProp, FormField, Get, NotFound, Path, Post, Query } from "acts-util-apilib";
 import { Payment, PaymentsController } from "../data-access/PaymentsController";
 import { PaymentsImportService } from "../services/PaymentsImportService";
 import { UploadedFile } from "acts-util-node/dist/http/UploadedFile";
 import { Money } from "@dintero/money";
+import { PaymentAssociationService } from "../services/PaymentAssociationService";
+import { ItemsController } from "../data-access/ItemsController";
 
 interface PaymentDTO extends Payment
 {
@@ -30,7 +32,7 @@ interface PaymentDTO extends Payment
 @APIController("payments")
 class _api_
 {
-    constructor(private paymentsController: PaymentsController, private paymentsImportService: PaymentsImportService)
+    constructor(private paymentsController: PaymentsController, private paymentsImportService: PaymentsImportService, private paymentAssociationService: PaymentAssociationService, private itemsController: ItemsController)
     {
     }
 
@@ -66,12 +68,58 @@ class _api_
         return this.paymentsController.QueryServices();
     }
 
+    @Get("services/{serviceId}")
+    public async RequestPaymentService(
+        @Path serviceId: number
+    )
+    {
+        return this.paymentsController.QueryService(serviceId);
+    }
+
+    @Get("details/{paymentId}")
+    public async RequestPayment(
+        @Path paymentId: number
+    )
+    {
+        const payment = await this.paymentsController.QueryPayment(paymentId);
+        if(payment === undefined)
+            return NotFound("payment does not exist");
+        return this.MapPayment(payment);
+    }
+
+    @Get("items/{paymentId}")
+    public async RequestAssociatedItems(
+        @Path paymentId: number,
+    )
+    {
+        const itemIds = await this.paymentsController.QueryAssociatedItems(paymentId);
+        const items = itemIds.Values().Map(async x => {
+            const item = await this.itemsController.QueryItem(x);
+            return item!;
+        }).PromiseAll();
+        return items;
+    }
+
+    @Post("items/{paymentId}")
+    public async AssociatePayment(
+        @Path paymentId: number,
+        @BodyProp itemId: number
+    )
+    {
+        await this.paymentAssociationService.Associate(paymentId, itemId);
+    }
+
     //Private methods
+    private MapPayment(payment: Payment): PaymentDTO
+    {
+        return {
+            netAmount: Money.of(payment.grossAmount, payment.currency).add(Money.of(payment.transactionFee, payment.currency)).toString(),
+            ...payment
+        };
+    }
+
     private MapPayments(payments: Payment[])
     {
-        return payments.map<PaymentDTO>(x => ({
-            netAmount: Money.of(x.grossAmount, x.currency).add(Money.of(x.transactionFee, x.currency)).toString(),
-            ...x
-        }));
+        return payments.map(this.MapPayment.bind(this));
     }
 }

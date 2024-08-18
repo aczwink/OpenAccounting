@@ -18,12 +18,12 @@
 
 import { Component, Injectable, JSX_CreateElement, ProgressSpinner } from "acfrontend";
 import { APIService } from "../APIService";
-import { YearMonthPicker } from "../YearMonthPicker";
+import { YearMonthPicker } from "../shared/YearMonthPicker";
 import { PaymentDTO } from "../../dist/api";
-import { PaymentsComponent } from "./PaymentsComponent";
+import { PaymentListComponent } from "./PaymentListComponent";
 
 @Injectable
-export class MonthlyPaymentsComponent extends Component
+export class PaymentsPerMonthComponent extends Component
 {
     constructor(private apiService: APIService)
     {
@@ -39,8 +39,7 @@ export class MonthlyPaymentsComponent extends Component
     {
         return <fragment>
             <YearMonthPicker month={this.month} onChanged={this.OnDateSelectionChanged.bind(this)} year={this.year} />
-            <button type="button" className="btn btn-primary" onclick={this.OnSearch.bind(this)}>Query</button>
-            {this.data === null ? <ProgressSpinner /> : <PaymentsComponent payments={this.data} />}
+            {this.data === null ? <ProgressSpinner /> : <PaymentListComponent payments={this.data} />}
         </fragment>;
     }
 
@@ -49,16 +48,29 @@ export class MonthlyPaymentsComponent extends Component
     private month: number;
     private data: PaymentDTO[] | null;
 
+    //Private methods
+    private async LoadData()
+    {
+        this.data = null;
+
+        const response = await this.apiService.payments.get({ month: this.month, year: this.year });
+        this.data = response.data;
+    }
+
     //Event handlers
     private OnDateSelectionChanged(year: number, month: number)
     {
         this.year = year;
         this.month = month;
+        this.LoadData();
     }
 
-    private async OnSearch()
+    override async OnInitiated(): Promise<void>
     {
-        const response = await this.apiService.payments.get({ month: this.month, year: this.year });
-        this.data = response.data;
+        const response = await this.apiService.accounting.last.get();
+        this.year = response.data.year;
+        this.month = response.data.month;
+
+        this.LoadData();
     }
 }

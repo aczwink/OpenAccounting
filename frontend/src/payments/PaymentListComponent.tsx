@@ -16,12 +16,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { Component, JSX_CreateElement } from "acfrontend";
+import { BootstrapIcon, Component, JSX_CreateElement, RouterButton } from "acfrontend";
 import { PaymentDTO, PaymentType } from "../../dist/api";
 import { PaymentServiceComponent } from "./PaymentServiceComponent";
 import { IdentityReferenceComponent } from "../identities/IdentityReferenceComponent";
+import { RenderMonetaryValue } from "../shared/money";
+import { PaymentTypeToString } from "../shared/payments";
 
-export class PaymentsComponent extends Component<{ payments: PaymentDTO[] }>
+export class PaymentListComponent extends Component<{ payments: PaymentDTO[]; renderAdditionalActions?: (p: PaymentDTO) => RenderValue }>
 {
     protected Render(): RenderValue
     {
@@ -49,36 +51,24 @@ export class PaymentsComponent extends Component<{ payments: PaymentDTO[] }>
     //Private methods
     private RenderPayment(p: PaymentDTO)
     {
+        const addtionalActions = (this.input.renderAdditionalActions === undefined) ? null : this.input.renderAdditionalActions(p);
         return <tr>
             <td>{p.timestamp.toLocaleString()}</td>
             <td><PaymentServiceComponent paymentServiceId={p.paymentServiceId} /></td>
             <td>{p.externalTransactionId}</td>
-            <td>{this.RenderType(p.type, p.grossAmount)}</td>
+            <td>{PaymentTypeToString(p.type, p.grossAmount)}</td>
             <td><IdentityReferenceComponent identityId={p.identityId} /></td>
-            <td>{this.RenderMonetaryValue(p.grossAmount)}</td>
-            <td>{this.RenderMonetaryValue(p.transactionFee)}</td>
-            <td>{this.RenderMonetaryValue(p.netAmount)}</td>
+            <td>{RenderMonetaryValue(p.grossAmount)}</td>
+            <td>{RenderMonetaryValue(p.transactionFee)}</td>
+            <td>{RenderMonetaryValue(p.netAmount)}</td>
             <td>{p.currency}</td>
             <td>{p.note}</td>
-            <td>TODO</td>
+            <td>
+                <div className="btn-group">
+                    <RouterButton className="btn-sm" color="primary" route={"/payments/details/" + p.id}><BootstrapIcon>zoom-in</BootstrapIcon> View details</RouterButton>
+                    {addtionalActions}
+                </div>
+            </td>
         </tr>;
-    }
-
-    private RenderType(type: PaymentType, grossAmount: string)
-    {
-        switch(type)
-        {
-            case PaymentType.Normal:
-                return grossAmount.startsWith("-") ? "Outbound" : "Inbound";
-            case PaymentType.Withdrawal:
-                return "Withdrawal";
-        }
-    }
-
-    private RenderMonetaryValue(value: string)
-    {
-        if(value.startsWith("-"))
-            return <span className="text-danger">{value}</span>;
-        return value;
     }
 }

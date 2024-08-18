@@ -16,9 +16,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { Component, Injectable, JSX_CreateElement, ProgressSpinner } from "acfrontend";
+import { BootstrapIcon, Component, Injectable, JSX_CreateElement, ProgressSpinner, RouterButton } from "acfrontend";
 import { APIService } from "../APIService";
-import { PaymentsComponent } from "./PaymentsComponent";
+import { PaymentListComponent } from "./PaymentListComponent";
 import { PaymentDTO } from "../../dist/api";
 
 @Injectable
@@ -35,7 +35,7 @@ export class OpenPaymentsComponent extends Component
     {
         if(this.data === null)
             return <ProgressSpinner />;
-        return <PaymentsComponent payments={this.data} />
+        return <PaymentListComponent payments={this.data} renderAdditionalActions={p => <RouterButton className="btn-sm" color="secondary" route={"/payments/associate/" + p.id}><BootstrapIcon>link</BootstrapIcon> Link with item</RouterButton>} />
     }
 
     //Private state

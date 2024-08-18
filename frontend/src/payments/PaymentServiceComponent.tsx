@@ -16,8 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { Component, Injectable, JSX_CreateElement, ProgressSpinner } from "acfrontend";
-import { PaymentService } from "../../dist/api";
+import { BootstrapIcon, Component, Injectable, JSX_CreateElement, JSX_Fragment, ProgressSpinner } from "acfrontend";
+import { FullPaymentServiceData } from "../../dist/api";
 import { CachedAPIService } from "../CachedAPIService";
 
 @Injectable
@@ -34,11 +34,25 @@ export class PaymentServiceComponent extends Component<{ paymentServiceId: numbe
     {
         if(this.data === null)
             return <ProgressSpinner />;
-        return this.data.name;
+        return <>
+            {this.data.name + " "}
+            <span className="text-primary"><BootstrapIcon>{this.RenderIcon(this.data.type)}</BootstrapIcon></span>
+        </>;
     }
 
     //Private state
-    private data: PaymentService | null;
+    private data: FullPaymentServiceData | null;
+
+    //Private methods
+    private RenderIcon(type: string)
+    {
+        switch(type)
+        {
+            case "paypal":
+                return "paypal";
+        }
+        throw new Error("Method not implemented.");
+    }
 
     //Event handlers
     override async OnInitiated(): Promise<void>

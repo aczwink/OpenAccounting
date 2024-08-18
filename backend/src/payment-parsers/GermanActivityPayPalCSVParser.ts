@@ -18,8 +18,8 @@
 import * as csv from "fast-csv";
 import { Readable } from 'stream';
 import { ParsedPayment } from "./ParsedPayment";
-import moment from "moment-timezone";
 import { PaymentType } from "../data-access/PaymentsController";
+import { DateTime } from "acts-util-node";
 
 export class GermanActivityPayPalCSVParser
 {
@@ -44,14 +44,12 @@ export class GermanActivityPayPalCSVParser
         for (const row of filteredRows)
         {
             const date = this.ExtractField(row, "Datum", "string");
-            const dateParts = date.split(".");
-            const reorderedDate = dateParts[2] + "-" + dateParts[1] + "-" + dateParts[0];
+            const dateParts = date.split(".").map(x => parseInt(x));
             const time = this.ExtractField(row, "Uhrzeit", "string");
-            const rawTimeZone = this.ExtractField(row, "Zeitzone", "string");
-            const timeZone = this.MapTimeZone(rawTimeZone);
+            const timeParts = time.split(":").map(x => parseInt(x));
+            const timeZone = this.ExtractField(row, "Zeitzone", "string");
 
-            const converted = moment.tz(reorderedDate + "T" + time, timeZone).utc();
-            const timeStamp = new Date(converted.toISOString());
+            const timeStamp = DateTime.Construct(dateParts[2], dateParts[1], dateParts[0], timeParts[0], timeParts[1], timeParts[2], timeZone);
 
             const isInbound = this.ExtractField(row, "Auswirkung auf Guthaben", "string") === "Haben";
             const type = (this.ExtractField(row, "Typ", "string") === "Allgemeine Abbuchung") ? PaymentType.Withdrawal : PaymentType.Normal;
@@ -60,7 +58,7 @@ export class GermanActivityPayPalCSVParser
             payments.push({
                 type,
                 currency: this.ExtractField(row, "Währung", "string"),
-                timeStamp: new Date(timeStamp),
+                timeStamp,
                 grossAmount: this.ExtractField(row, "Brutto", "german-decimal"),
                 transactionFee: this.ExtractField(row, "Gebühr", "german-decimal"),
                 participantId: this.ExtractField(row, useSenderColumn ? "Absender E-Mail-Adresse" : "Empfänger E-Mail-Adresse", "string"),
@@ -94,16 +92,6 @@ export class GermanActivityPayPalCSVParser
             case "string":
                 return stringValue;
         }
-    }
-
-    private MapTimeZone(timeZone: string)
-    {
-        switch(timeZone)
-        {
-            case "CEST":
-                return "Europe/Berlin";
-        }
-        return timeZone;
     }
 
     private async ParseCSVData(stream: Readable)
