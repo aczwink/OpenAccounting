@@ -18,11 +18,7 @@
 
 import { JSX_CreateElement, Routes } from "acfrontend";
 import { MonthlyBillComponent } from "./MonthlyBillComponent";
-import { ShowPaymentsComponent } from "./payments/ShowPaymentsComponent";
 import { BookingComponent } from "./booking/BookingComponent";
-import { OpenPaymentsComponent } from "./payments/OpenPaymentsComponent";
-import { PaymentsPerMonthComponent } from "./payments/PaymentsPerMonthComponent";
-import { ImportPaymentsComponent } from "./payments/ImportPaymentsComponent";
 import { IdentitiesListComponent } from "./identities/IdentitiesListComponent";
 import { ShowIdentityComponent } from "./identities/ShowIdentityComponent";
 import { SubscriptionListComponent } from "./subscriptions/SubscriptionListComponent";
@@ -33,10 +29,13 @@ import { EditIdentityComponent } from "./identities/EditIdentityComponent";
 import { CreateAccountingMonthComponent } from "./booking/CreateAccountingMonthComponent";
 import { AccountingMonthsListComponent } from "./booking/AccountingMonthsListComponent";
 import { OpenItemsComponent } from "./booking/OpenItemsComponent";
-import { AssociatePaymentComponent } from "./payments/AssociatePaymentComponent";
 import { ItemsPerMonthComponent } from "./booking/ItemsPerMonthComponent";
 import { ViewItemDetailsComponent } from "./booking/ViewItemDetailsComponent";
-import { ViewPaymentDetailsComponent } from "./payments/ViewPaymentDetailsComponent";
+import { CreateProductComponent } from "./products/CreateProductComponent";
+import { ViewProductComponent } from "./products/ViewProductComponent";
+import { CreateItemComponent } from "./booking/CreateItemComponent";
+import { MoneyDistributionComponent } from "./reporting/MoneyDistributionComponent";
+import { paymentsRoutes } from "./payments/routing";
 
 const bookingListingRoutes: Routes = [
     { path: "accountingmonths/create", component: <CreateAccountingMonthComponent /> },
@@ -47,6 +46,7 @@ const bookingListingRoutes: Routes = [
 ];
 
 const bookingRoutes: Routes = [
+    //{ path: "items/create", component: <CreateItemComponent /> },
     { path: "items/{itemId}", component: <ViewItemDetailsComponent /> },
     { path: "", component: <BookingComponent />, children: bookingListingRoutes },
 ];
@@ -57,21 +57,15 @@ const identitiesRoutes: Routes = [
     { path: "", component: <IdentitiesListComponent /> },
 ];
 
-const paymentListingRoutes: Routes = [
-    { path: "month", component: PaymentsPerMonthComponent },
-    { path: "open", component: OpenPaymentsComponent },
-    { path: "", redirect: "open" },
-];
-
-const paymentsRoutes: Routes = [
-    { path: "associate/{paymentId}", component: <AssociatePaymentComponent /> },
-    { path: "details/{paymentId}", component: <ViewPaymentDetailsComponent /> },
-    { path: "import", component: ImportPaymentsComponent },
-    { path: "", component: ShowPaymentsComponent, children: paymentListingRoutes },
-];
-
 const productsRoutes: Routes = [
-    { path: "", component: ProductListComponent },
+    { path: "add", component: <CreateProductComponent /> },
+    { path: "{productId}", component: <ViewProductComponent /> },
+    { path: "", component: <ProductListComponent /> },
+];
+
+const reportingRoutes: Routes = [
+    { path: "moneydistribution", component: <MoneyDistributionComponent /> },
+    { path: "", redirect: "moneydistribution" }
 ];
 
 const subscriptionsRoutes: Routes = [
@@ -86,6 +80,7 @@ export const routes : Routes = [
     { path: "monthlybilling", component: MonthlyBillComponent },
     { path: "payments", children: paymentsRoutes },
     { path: "products", children: productsRoutes },
+    { path: "reporting", children: reportingRoutes },
     { path: "subscriptions", children: subscriptionsRoutes },
     { path: "", redirect: "booking" },
     { path: "*", component: JSX_CreateElement("p", { textContent: "404" }) }

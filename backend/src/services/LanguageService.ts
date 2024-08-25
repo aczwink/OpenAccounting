@@ -44,4 +44,10 @@ export class LanguageService
                 throw new Error("unsupported language: " + lang);
         }
     }
+
+    public async GetNativeCurrency()
+    {
+        const currency = await this.assetController.QueryAsset("nativeCurrency");
+        return currency!;
+    }
 }

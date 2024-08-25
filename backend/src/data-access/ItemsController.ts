@@ -19,12 +19,15 @@
 import { DateTime, Injectable } from "acts-util-node";
 import { DatabaseController } from "./DatabaseController";
 
-interface ItemCreationData
+export interface ItemCreationData
 {
     timestamp: DateTime;
     debtorId: number;
     amount: string;
-    subscriptionId: number;
+    currency: string;
+    subscriptionId: number | null;
+    productId: number | null;
+    note: string;
 }
 
 interface Item extends ItemCreationData
@@ -45,13 +48,14 @@ export class ItemsController
     }
 
     //Public methods
-    public async CreateSubscriptionItem(data: ItemCreationData)
+    public async CreateItem(data: ItemCreationData)
     {
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
         const result = await exector.InsertRow("items", data);
         const itemId = result.insertId;
 
         await exector.InsertRow("items_open", { itemId });
+        return itemId;
     }
 
     public async QueryItem(itemId: number)
@@ -61,17 +65,14 @@ export class ItemsController
         if(row === undefined)
             return undefined;
         const item = row as ItemDetails;
-
-        const rows = await exector.Select("SELECT paymentId FROM payments_items WHERE itemId = ?", itemId);
-
-        item.paymentIds = rows.map(row => row.paymentId);
+        item.paymentIds = await this.QueryPaymentIdsAssociatedWithItem(itemId);
         return item;
     }
 
     public async QueryItemsInRange(inclusiveStart: DateTime, inclusiveEnd: DateTime)
     {
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
-        const rows = await exector.Select<Item>("SELECT * FROM items WHERE timestamp >= ? AND timestamp <= ?", inclusiveStart, inclusiveEnd);
+        const rows = await exector.Select<Item>("SELECT * FROM items WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC", inclusiveStart, inclusiveEnd);
         return rows;
     }
 
@@ -80,6 +81,13 @@ export class ItemsController
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
         const rows = await exector.Select<Item>("SELECT i.* FROM items i INNER JOIN items_open io ON io.itemId = i.id");
         return rows;
+    }
+
+    public async QueryPaymentIdsAssociatedWithItem(itemId: number)
+    {
+        const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
+        const rows = await exector.Select("SELECT paymentId FROM payments_items WHERE itemId = ?", itemId);
+        return rows.map(row => row.paymentId as number);
     }
 
     public async RemoveItemFromOpenItemsList(itemId: number)

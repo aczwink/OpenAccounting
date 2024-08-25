@@ -23,7 +23,7 @@ import { PaymentDTO } from "../../dist/api";
 import { PaymentListComponent } from "./PaymentListComponent";
 
 @Injectable
-export class PaymentsPerMonthComponent extends Component
+export class PaymentsPerMonthComponent extends Component<{ renderAdditionalActions?: (p: PaymentDTO) => RenderValue }>
 {
     constructor(private apiService: APIService)
     {
@@ -39,7 +39,7 @@ export class PaymentsPerMonthComponent extends Component
     {
         return <fragment>
             <YearMonthPicker month={this.month} onChanged={this.OnDateSelectionChanged.bind(this)} year={this.year} />
-            {this.data === null ? <ProgressSpinner /> : <PaymentListComponent payments={this.data} />}
+            {this.data === null ? <ProgressSpinner /> : <PaymentListComponent renderAdditionalActions={this.input.renderAdditionalActions} payments={this.data} />}
         </fragment>;
     }
 

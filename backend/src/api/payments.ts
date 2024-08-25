@@ -16,23 +16,33 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { APIController, BodyProp, FormField, Get, NotFound, Path, Post, Query } from "acts-util-apilib";
-import { Payment, PaymentsController } from "../data-access/PaymentsController";
-import { PaymentsImportService } from "../services/PaymentsImportService";
+import { APIController, Body, BodyProp, FormField, Get, NotFound, Path, Post, Put, Query } from "acts-util-apilib";
+import { Payment, PaymentLink, PaymentServiceType, PaymentsController } from "../data-access/PaymentsController";
+import { ManualPaymentCreationData, PaymentsImportService } from "../services/PaymentsImportService";
 import { UploadedFile } from "acts-util-node/dist/http/UploadedFile";
-import { Money } from "@dintero/money";
 import { PaymentAssociationService } from "../services/PaymentAssociationService";
 import { ItemsController } from "../data-access/ItemsController";
+import { FinanceService } from "../services/FinanceService";
+import { Of } from "acts-util-core";
+import { AccountingMonthService } from "../services/AccountingMonthService";
 
 interface PaymentDTO extends Payment
 {
     netAmount: string;
 }
 
+interface PaymentDetailsDTO extends PaymentDTO
+{
+    links: PaymentLink[];
+    linked: PaymentLink[];
+}
+
 @APIController("payments")
 class _api_
 {
-    constructor(private paymentsController: PaymentsController, private paymentsImportService: PaymentsImportService, private paymentAssociationService: PaymentAssociationService, private itemsController: ItemsController)
+    constructor(private paymentsController: PaymentsController, private paymentsImportService: PaymentsImportService, private paymentAssociationService: PaymentAssociationService, private itemsController: ItemsController,
+        private financeService: FinanceService, private accountingMonthService: AccountingMonthService
+    )
     {
     }
 
@@ -42,7 +52,8 @@ class _api_
         @Query year: number
     )
     {
-        const payments = await this.paymentsController.QueryPayments(month, year);
+        const range = await this.accountingMonthService.CalculateUTCRangeOfAccountingMonth(year, month);
+        const payments = await this.paymentsController.QueryPaymentsInRange(range.inclusiveStart, range.inclusiveEnd);
         return this.MapPayments(payments);
     }
 
@@ -55,6 +66,32 @@ class _api_
         return await this.paymentsImportService.ImportPayments(paymentServiceId, paymentsData.buffer);
     }
 
+    @Post("cash")
+    public async CreatePayment(
+        @Body paymentData: ManualPaymentCreationData
+    )
+    {
+        return await this.paymentsImportService.CreatePayment(paymentData);
+    }
+
+    @Put("cash/{paymentId}")
+    public async UpdatePayment(
+        @Path paymentId: number,
+        @Body paymentData: ManualPaymentCreationData
+    )
+    {
+        return await this.paymentsController.UpdatePayment(paymentId, paymentData);
+    }
+
+    @Post("link/{paymentId}")
+    public async CreatePaymentLink(
+        @Path paymentId: number,
+        @Body link: PaymentLink,
+    )
+    {
+        return await this.paymentAssociationService.AssociateWithPayment(paymentId, link);
+    }
+
     @Get("open")
     public async RequestOpenPayments()
     {
@@ -63,9 +100,11 @@ class _api_
     }
 
     @Get("services")
-    public async RequestPaymentServices()
+    public async RequestPaymentServices(
+        @Query type?: PaymentServiceType
+    )
     {
-        return this.paymentsController.QueryServices();
+        return this.paymentsController.QueryServices(type);
     }
 
     @Get("services/{serviceId}")
@@ -84,7 +123,15 @@ class _api_
         const payment = await this.paymentsController.QueryPayment(paymentId);
         if(payment === undefined)
             return NotFound("payment does not exist");
-        return this.MapPayment(payment);
+        const dto = this.MapPayment(payment);
+        const links = await this.paymentsController.QueryPaymentLinks(paymentId, "outgoing");
+        const linked = await this.paymentsController.QueryPaymentLinks(paymentId, "incoming");
+
+        return Of<PaymentDetailsDTO>({
+            links,
+            linked,
+            ...dto,
+        });
     }
 
     @Get("items/{paymentId}")
@@ -106,14 +153,14 @@ class _api_
         @BodyProp itemId: number
     )
     {
-        await this.paymentAssociationService.Associate(paymentId, itemId);
+        await this.paymentAssociationService.AssociateWithItem(paymentId, itemId);
     }
 
     //Private methods
     private MapPayment(payment: Payment): PaymentDTO
     {
         return {
-            netAmount: Money.of(payment.grossAmount, payment.currency).add(Money.of(payment.transactionFee, payment.currency)).toString(),
+            netAmount: this.financeService.ComputeNetAmount(payment).toString(),
             ...payment
         };
     }

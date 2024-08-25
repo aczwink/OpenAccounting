@@ -48,6 +48,7 @@ export class AccountingMonthService
     {
         const timeZone = await this.languageService.GetBookingTimeZone();
         const bookingTimeStamp = DateTime.Construct(year, month, 1, 0, 0, 0, timeZone);
+        const nativeCurrency = await this.languageService.GetNativeCurrency();
 
         const exists = await this.accountingMonthsController.Exists(year, month);
         if(exists)
@@ -58,14 +59,28 @@ export class AccountingMonthService
         {
             const subscription = await this.subscriptionsController.QuerySubscription(assignment.subscriptionId);
 
-            await this.itemsController.CreateSubscriptionItem({
+            await this.itemsController.CreateItem({
                 debtorId: assignment.identityId,
                 subscriptionId: assignment.subscriptionId,
                 amount: subscription!.price,
-                timestamp: bookingTimeStamp
+                currency: nativeCurrency,
+                timestamp: bookingTimeStamp,
+                productId: null,
+                note: "",
             });
         }
 
         await this.accountingMonthsController.Add(year, month);
+    }
+
+    public async FindAccountingMonth(timeStamp: DateTime)
+    {
+        const timeZone = await this.languageService.GetBookingTimeZone();
+        const timeStampWithBookingTimeZone = timeStamp.ToZone(timeZone);
+
+        return {
+            year: timeStampWithBookingTimeZone.year,
+            month: timeStampWithBookingTimeZone.month
+        };
     }
 }

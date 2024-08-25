@@ -16,11 +16,55 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { JSX_CreateElement } from "acfrontend";
+import { DataLink, JSX_CreateElement, LineEdit } from "acfrontend";
+import { GetDisplayLocale } from "./Locale";
 
-export function RenderMonetaryValue(value: string)
+function CurrencySymbolOrISO4217Code(iso4217Code: string)
 {
-    if(value.startsWith("-"))
-        return <span className="text-danger">{value}</span>;
-    return value;
+    switch(iso4217Code)
+    {
+        case "EUR":
+            return "€";
+    }
+    return iso4217Code;
+}
+
+function MoneyDisplayVersionToDecimal(amount: string)
+{
+    switch(GetDisplayLocale())
+    {
+        case "de":
+            return amount.replace(",", ".");
+    }
+    return amount;
+}
+
+function RenderAmountAccordingToLocale(amount: string)
+{
+    switch(GetDisplayLocale())
+    {
+        case "de":
+            return amount.replace(".", ",");
+    }
+    return amount;
+}
+
+function RenderAmountWithCurrency(amount: string, currency: string)
+{
+    return RenderAmountAccordingToLocale(amount) + " " + CurrencySymbolOrISO4217Code(currency);
+}
+
+export function RenderMonetaryValue(amount: string, currency: string)
+{
+    if(amount.startsWith("-"))
+        return <span className="text-danger">{RenderAmountWithCurrency(amount, currency)}</span>;
+    return RenderAmountWithCurrency(amount, currency);
+}
+
+export function RenderMonetaryEditControl(amount: DataLink<string>, currency: string)
+{
+    return <div className="input-group mb-3">
+        <LineEdit value={RenderAmountAccordingToLocale(amount.value)} onChanged={x => amount.Set(MoneyDisplayVersionToDecimal(x))} />
+        <span className="input-group-text">{CurrencySymbolOrISO4217Code(currency)}</span>
+    </div>;
 }

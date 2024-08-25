@@ -29,6 +29,7 @@
     "js-yaml": "^4.1.0"
   },
   "dependencies": {
-    "acfrontend": "*"
+    "acfrontend": "*",
+    "acts-util-core": "*"
   }
 }

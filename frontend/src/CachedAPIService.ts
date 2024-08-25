@@ -18,7 +18,7 @@
 
 import { Injectable } from "acfrontend";
 import { APIService } from "./APIService";
-import { FullPaymentServiceData, Identity, Subscription } from "../dist/api";
+import { FullPaymentServiceData, Identity, ProductDTO, Subscription } from "../dist/api";
 import { NumberDictionary } from "../../../ACTS-Util/core/dist/Dictionary";
 
 @Injectable
@@ -30,6 +30,7 @@ export class CachedAPIService
         this.cachedAccountingYears = null;
         this.cachedServices = {};
         this.cachedIdentities = {};
+        this.cachedProducts = {};
         this.cachedSubscriptions = {};
     }
 
@@ -83,6 +84,21 @@ export class CachedAPIService
         return service;
     }
 
+    public async RequestProduct(id: number)
+    {
+        const product = this.cachedProducts[id];
+        if(product === undefined)
+        {
+            const response = await this.apiService.products._any_.get(id);
+            if(response.statusCode === 200)
+            {
+                this.cachedProducts[id] = response.data;
+                return response.data;
+            }
+        }
+        return product!;
+    }
+
     public async RequestSubscription(id: number)
     {
         const subscription = this.cachedSubscriptions[id];
@@ -103,5 +119,6 @@ export class CachedAPIService
     private cachedAccountingYears: number[] | null;
     private cachedServices: NumberDictionary<FullPaymentServiceData>;
     private cachedIdentities: NumberDictionary<Identity>;
+    private cachedProducts: NumberDictionary<ProductDTO>;
     private cachedSubscriptions: NumberDictionary<Subscription>;
 }

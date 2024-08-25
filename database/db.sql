@@ -26,6 +26,7 @@ DROP TABLE IF EXISTS `accountingMonths`;
 CREATE TABLE `accountingMonths` (
   `year` smallint(5) unsigned NOT NULL,
   `month` tinyint(3) unsigned NOT NULL,
+  `isOpen` tinyint(1) NOT NULL,
   PRIMARY KEY (`year`,`month`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -70,7 +71,7 @@ CREATE TABLE `identities_paymentAccounts` (
   `identityId` int(10) unsigned NOT NULL,
   `paymentServiceId` int(10) unsigned NOT NULL,
   `externalAccount` varchar(200) NOT NULL,
-  KEY `identities_paymentAccounts_identityId` (`identityId`),
+  PRIMARY KEY (`identityId`,`paymentServiceId`,`externalAccount`),
   KEY `identities_paymentAccounts_paymentServiceId` (`paymentServiceId`),
   CONSTRAINT `identities_paymentAccounts_identityId` FOREIGN KEY (`identityId`) REFERENCES `identities` (`id`),
   CONSTRAINT `identities_paymentAccounts_paymentServiceId` FOREIGN KEY (`paymentServiceId`) REFERENCES `paymentServices` (`id`)
@@ -108,11 +109,16 @@ CREATE TABLE `items` (
   `timestamp` datetime NOT NULL,
   `debtorId` int(10) unsigned NOT NULL,
   `amount` decimal(10,2) NOT NULL,
-  `subscriptionId` int(10) unsigned NOT NULL,
+  `currency` char(3) NOT NULL,
+  `subscriptionId` int(10) unsigned DEFAULT NULL,
+  `productId` int(10) unsigned DEFAULT NULL,
+  `note` varchar(200) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `items_subscriptionId` (`subscriptionId`),
   KEY `items_identityId` (`debtorId`),
+  KEY `items_productId` (`productId`),
   CONSTRAINT `items_identityId` FOREIGN KEY (`debtorId`) REFERENCES `identities` (`id`),
+  CONSTRAINT `items_productId` FOREIGN KEY (`productId`) REFERENCES `products` (`id`),
   CONSTRAINT `items_subscriptionId` FOREIGN KEY (`subscriptionId`) REFERENCES `subscriptions` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -148,6 +154,22 @@ CREATE TABLE `paymentServices` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `paymentServices_accounts`
+--
+
+DROP TABLE IF EXISTS `paymentServices_accounts`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `paymentServices_accounts` (
+  `paymentServiceId` int(10) unsigned NOT NULL,
+  `account` varchar(200) NOT NULL,
+  `name` varchar(200) NOT NULL,
+  PRIMARY KEY (`paymentServiceId`,`account`),
+  CONSTRAINT `paymentServices_accounts` FOREIGN KEY (`paymentServiceId`) REFERENCES `paymentServices` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `payments`
 --
 
@@ -159,17 +181,20 @@ CREATE TABLE `payments` (
   `type` tinyint(3) unsigned NOT NULL,
   `paymentServiceId` int(10) unsigned NOT NULL,
   `externalTransactionId` varchar(200) NOT NULL,
-  `identityId` int(10) unsigned NOT NULL,
+  `senderId` int(10) unsigned NOT NULL,
+  `receiverId` int(10) unsigned NOT NULL,
   `timestamp` datetime NOT NULL,
   `grossAmount` decimal(10,2) NOT NULL,
   `transactionFee` decimal(10,2) NOT NULL,
   `currency` char(3) NOT NULL,
   `note` varchar(200) NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `payments_senderId` (`identityId`),
-  KEY `payments_paymentServiceId` (`paymentServiceId`),
+  UNIQUE KEY `paymentServiceId` (`paymentServiceId`,`externalTransactionId`),
+  KEY `payments_senderId` (`senderId`),
+  KEY `payments_receiverId` (`receiverId`),
   CONSTRAINT `payments_paymentServiceId` FOREIGN KEY (`paymentServiceId`) REFERENCES `paymentServices` (`id`),
-  CONSTRAINT `payments_senderId` FOREIGN KEY (`identityId`) REFERENCES `identities` (`id`)
+  CONSTRAINT `payments_receiverId` FOREIGN KEY (`receiverId`) REFERENCES `identities` (`id`),
+  CONSTRAINT `payments_senderId` FOREIGN KEY (`senderId`) REFERENCES `identities` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -191,6 +216,24 @@ CREATE TABLE `payments_items` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `payments_links`
+--
+
+DROP TABLE IF EXISTS `payments_links`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `payments_links` (
+  `paymentId` int(10) unsigned NOT NULL,
+  `linkedPaymentId` int(10) unsigned NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `reason` tinyint(3) unsigned NOT NULL,
+  PRIMARY KEY (`linkedPaymentId`),
+  CONSTRAINT `payments_links_linkedPaymentId` FOREIGN KEY (`linkedPaymentId`) REFERENCES `payments` (`id`),
+  CONSTRAINT `payments_links_paymentId` FOREIGN KEY (`paymentId`) REFERENCES `payments` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `payments_open`
 --
 
@@ -201,6 +244,21 @@ CREATE TABLE `payments_open` (
   `paymentId` int(10) unsigned NOT NULL,
   KEY `payments_open_paymentId` (`paymentId`),
   CONSTRAINT `payments_open_paymentId` FOREIGN KEY (`paymentId`) REFERENCES `payments` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `products`
+--
+
+DROP TABLE IF EXISTS `products`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `products` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `title` varchar(200) NOT NULL,
+  `price` decimal(10,2) NOT NULL,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -232,4 +290,4 @@ CREATE TABLE `subscriptions` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2024-08-18 22:18:25
+-- Dump completed on 2024-08-25 22:26:04

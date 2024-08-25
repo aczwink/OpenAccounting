@@ -41,7 +41,10 @@ export class RootComponent extends Component
                 <ul className="nav nav-pills">
                     <NavItem route="/booking"><BootstrapIcon>bank</BootstrapIcon> Booking</NavItem>
                     <NavItem route="/payments"><BootstrapIcon>credit-card</BootstrapIcon> Payments</NavItem>
-                    <NavItem route="/monthlybilling"><BootstrapIcon>graph-up</BootstrapIcon> Monthly bill</NavItem>
+                </ul>
+                <ul className="nav nav-pills">
+                    <NavItem route="/monthlybilling"><BootstrapIcon>receipt</BootstrapIcon> Monthly bill</NavItem>
+                    <NavItem route="/reporting"><BootstrapIcon>graph-up</BootstrapIcon> Reports</NavItem>
                 </ul>
                 <ul className="nav nav-pills">
                     <NavItem route="/identities"><BootstrapIcon>people</BootstrapIcon> Identities</NavItem>

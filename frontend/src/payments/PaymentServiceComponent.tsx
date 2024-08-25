@@ -44,14 +44,15 @@ export class PaymentServiceComponent extends Component<{ paymentServiceId: numbe
     private data: FullPaymentServiceData | null;
 
     //Private methods
-    private RenderIcon(type: string)
+    private RenderIcon(type: "cash" | "paypal")
     {
         switch(type)
         {
+            case "cash":
+                return "cash-coin";
             case "paypal":
                 return "paypal";
         }
-        throw new Error("Method not implemented.");
     }
 
     //Event handlers

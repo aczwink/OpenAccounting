@@ -50,7 +50,7 @@ export class MonthlyBillComponent extends Component
         this.loading = true;
 
         const selection = this.accountingMonth.value;
-        const response = await this.apiService.invoices.get({ month: selection.month, year: selection.year });
+        const response = await this.apiService.monthlyBill.get({ month: selection.month, year: selection.year });
         if(response.statusCode === 200)
             this.fileDownloadService.DownloadBlobAsFile(response.data, "invoice-" + selection.year + "-" + selection.month + ".pdf");
         else

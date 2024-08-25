@@ -32,6 +32,7 @@
     "dotenv": "^16.4.5",
     "fast-csv": "^5.0.1",
     "html-pdf-node": "^1.0.8",
+    "pdf-merger-js": "^4.3.1",
     "yaml": "^2.5.0"
   }
 }

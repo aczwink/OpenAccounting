@@ -16,22 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { APIController, Get, Query } from "acts-util-apilib";
-import { InvoiceService } from "../services/InvoiceService";
-
-@APIController("invoices")
-class _api_
+export function GetBookingLocale()
 {
-    constructor(private invoiceService: InvoiceService)
-    {
-    }
+    //TODO:
+    return GetDisplayLocale();
+}
 
-    @Get()
-    public async GenerateInvoice(
-        @Query year: number,
-        @Query month: number,
-    )
-    {
-        return this.invoiceService.GeneratePDFInvoice(year, month);
-    }
+export function GetDisplayLocale()
+{
+    return navigator.language;
 }

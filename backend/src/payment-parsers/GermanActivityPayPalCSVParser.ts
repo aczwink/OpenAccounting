@@ -51,18 +51,22 @@ export class GermanActivityPayPalCSVParser
 
             const timeStamp = DateTime.Construct(dateParts[2], dateParts[1], dateParts[0], timeParts[0], timeParts[1], timeParts[2], timeZone);
 
-            const isInbound = this.ExtractField(row, "Auswirkung auf Guthaben", "string") === "Haben";
             const type = (this.ExtractField(row, "Typ", "string") === "Allgemeine Abbuchung") ? PaymentType.Withdrawal : PaymentType.Normal;
-            const useSenderColumn = isInbound || (type === PaymentType.Withdrawal);
 
+            const isInbound = this.ExtractField(row, "Auswirkung auf Guthaben", "string") === "Haben";
+            const nameIsSender = isInbound || (type === PaymentType.Withdrawal);
+
+            const name = this.ExtractField(row, "Name", "string")
             payments.push({
                 type,
                 currency: this.ExtractField(row, "Währung", "string"),
                 timeStamp,
                 grossAmount: this.ExtractField(row, "Brutto", "german-decimal"),
                 transactionFee: this.ExtractField(row, "Gebühr", "german-decimal"),
-                participantId: this.ExtractField(row, useSenderColumn ? "Absender E-Mail-Adresse" : "Empfänger E-Mail-Adresse", "string"),
-                participantName: this.ExtractField(row, "Name", "string"),
+                senderId: this.ExtractField(row, "Absender E-Mail-Adresse", "string"),
+                receiverId: this.ExtractField(row, "Empfänger E-Mail-Adresse", "string"),
+                senderName: nameIsSender ? name : "",
+                receiverName: !nameIsSender ? name : "",
                 transactionId: this.ExtractField(row, "Transaktionscode", "string"),
                 note: this.ExtractField(row, "Hinweis", "string")
             });

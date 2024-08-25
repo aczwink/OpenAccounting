@@ -22,6 +22,26 @@ import { PaymentListComponent } from "../payments/PaymentListComponent";
 import { IdentityReferenceComponent } from "../identities/IdentityReferenceComponent";
 import { RenderMonetaryValue } from "../shared/money";
 import { SubscriptionReferenceComponent } from "../subscriptions/SubscriptionReferenceComponent";
+import { ProductReferenceComponent } from "../products/ProductReferenceComponent";
+
+function RenderWhatFor(item: ItemDetails)
+{
+    if(item.subscriptionId !== null)
+    {
+        return <>
+            <strong>Subscription</strong><br />
+            <SubscriptionReferenceComponent id={item.subscriptionId} />
+        </>;
+    }
+    if(item.productId !== null)
+    {
+        return <>
+            <strong>Product/Service</strong><br />
+            <ProductReferenceComponent id={item.productId} />
+        </>;
+    }
+    return "-";
+}
 
 function InternalViewPaymentsDetailsComponent(input: { item: ItemDetails })
 {
@@ -38,11 +58,10 @@ function InternalViewPaymentsDetailsComponent(input: { item: ItemDetails })
             </div>
             <div className="col">
                 <strong>Amount</strong><br />
-                {RenderMonetaryValue(i.amount)}
+                {RenderMonetaryValue(i.amount, i.currency)}
             </div>
             <div className="col">
-                <strong>Subscription</strong><br />
-                <SubscriptionReferenceComponent id={i.subscriptionId} />
+                {RenderWhatFor(i)}
             </div>
         </div>
     </div>;

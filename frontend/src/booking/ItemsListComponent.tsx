@@ -16,11 +16,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { Anchor, BootstrapIcon, JSX_CreateElement, RouterButton } from "acfrontend";
+import { BootstrapIcon, JSX_CreateElement, RouterButton } from "acfrontend";
 import { Item } from "../../dist/api";
 import { IdentityReferenceComponent } from "../identities/IdentityReferenceComponent";
 import { SubscriptionReferenceComponent } from "../subscriptions/SubscriptionReferenceComponent";
 import { RenderMonetaryValue } from "../shared/money";
+import { ProductReferenceComponent } from "../products/ProductReferenceComponent";
+
+function RenderItemFor(item: Item)
+{
+    if(item.subscriptionId !== null)
+        return <SubscriptionReferenceComponent id={item.subscriptionId} />;
+    if(item.productId !== null)
+        return <ProductReferenceComponent id={item.productId} />;
+    return item.note;
+}
 
 function RenderItem(item: Item, extraActionsRenderer?: (i: Item) => RenderValue)
 {
@@ -28,8 +38,8 @@ function RenderItem(item: Item, extraActionsRenderer?: (i: Item) => RenderValue)
     return <tr>
         <td>{item.timestamp.toLocaleString()}</td>
         <td><IdentityReferenceComponent identityId={item.debtorId} /></td>
-        <td>{RenderMonetaryValue(item.amount)}</td>
-        <td><SubscriptionReferenceComponent id={item.subscriptionId} /></td>
+        <td>{RenderMonetaryValue(item.amount, item.currency)}</td>
+        <td>{RenderItemFor(item)}</td>
         <td>
             <div className="btn-group">
                 <RouterButton className="btn-sm" color="primary" route={"/booking/items/" + item.id}><BootstrapIcon>zoom-in</BootstrapIcon> View details</RouterButton>
@@ -47,7 +57,7 @@ export function ItemsListComponent(input: { items: Item[]; actionsColumnName?: s
             <th>Date and time</th>
             <th>Debtor</th>
             <th>Amount</th>
-            <th>Subscription</th>
+            <th>Goods</th>
             <th>{actionsColumnName}</th>
         </thead>
         <tbody>

@@ -16,11 +16,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { Injectable } from "acts-util-node";
-import { Payment, PaymentsController } from "../data-access/PaymentsController";
+import { DateTime, Injectable } from "acts-util-node";
+import { Payment, PaymentType, PaymentsController } from "../data-access/PaymentsController";
 import { GermanActivityPayPalCSVParser } from "../payment-parsers/GermanActivityPayPalCSVParser";
 import { IdentitiesController } from "../data-access/IdentitiesController";
 import { ParsedPayment } from "../payment-parsers/ParsedPayment";
+import { AccountingMonthService } from "./AccountingMonthService";
 
 interface ImportResult
 {
@@ -29,14 +30,54 @@ interface ImportResult
     found: number;
 }
 
+export interface ManualPaymentCreationData
+{
+    currency: string;
+    grossAmount: string;
+    note: string;
+    paymentServiceId: number;
+    receiverId: number;
+    senderId: number;
+    timestamp: DateTime;
+    type: PaymentType;
+}
+
 @Injectable
 export class PaymentsImportService
 {
-    constructor(private paymentsController: PaymentsController, private identitiesController: IdentitiesController)
+    constructor(private paymentsController: PaymentsController, private identitiesController: IdentitiesController, private accountingMonthService: AccountingMonthService)
     {
     }
 
     //Public methods
+    public async CreatePayment(paymentData: ManualPaymentCreationData)
+    {
+        const service = await this.paymentsController.QueryService(paymentData.paymentServiceId);
+        if(service.type !== "cash")
+            throw new Error("Can only create manual payments for cash payments");
+
+        const { year, month } = await this.accountingMonthService.FindAccountingMonth(paymentData.timestamp);
+        const range = await this.accountingMonthService.CalculateUTCRangeOfAccountingMonth(year, month);
+        const count = await this.paymentsController.QueryPaymentsCountForServiceInRange(paymentData.paymentServiceId, range.inclusiveStart, range.inclusiveEnd)
+        console.log({ count });
+        throw new Error("why the fuck is the count not of type str?");
+
+        const transactionId = this.FormatCashTransactionId(year, month, count);
+
+        return await this.paymentsController.CreatePayment({
+            currency: paymentData.currency,
+            externalTransactionId: transactionId,
+            grossAmount: paymentData.grossAmount,
+            note: paymentData.note,
+            paymentServiceId: paymentData.paymentServiceId,
+            receiverId: paymentData.receiverId,
+            senderId: paymentData.senderId,
+            timestamp: paymentData.timestamp,
+            transactionFee: "0",
+            type: paymentData.type
+        });
+    }
+
     public async ImportPayments(paymentServiceId: number, paymentsData: Buffer)
     {
         const result: ImportResult = {
@@ -77,20 +118,28 @@ export class PaymentsImportService
     //Private methods
     private async AddPayment(paymentServiceId: number, payment: ParsedPayment)
     {
-        let identityId = await this.identitiesController.FindIdentity(paymentServiceId, payment.participantId);
-        if(identityId === undefined)
+        let senderId = await this.identitiesController.FindIdentity(paymentServiceId, payment.senderId);
+        if(senderId === undefined)
         {
-            identityId = await this.identitiesController.CreateIdentity(payment.participantName || payment.participantId);
-            await this.identitiesController.AddPaymentAccount(identityId, paymentServiceId, payment.participantId);
+            senderId = await this.identitiesController.CreateIdentity(payment.senderName || payment.senderId);
+            await this.identitiesController.AddPaymentAccount(senderId, paymentServiceId, payment.senderId);
         }
 
-        await this.paymentsController.AddPayment({
+        let receiverId = await this.identitiesController.FindIdentity(paymentServiceId, payment.receiverId);
+        if(receiverId === undefined)
+        {
+            receiverId = await this.identitiesController.CreateIdentity(payment.receiverName || payment.receiverId);
+            await this.identitiesController.AddPaymentAccount(receiverId, paymentServiceId, payment.receiverId);
+        }
+
+        await this.paymentsController.CreatePayment({
             type: payment.type,
             currency: payment.currency,
             externalTransactionId: payment.transactionId,
             grossAmount: payment.grossAmount,
             paymentServiceId,
-            identityId: identityId,
+            receiverId: receiverId,
+            senderId: senderId,
             timestamp: payment.timeStamp,
             transactionFee: payment.transactionFee,
             note: payment.note
@@ -108,22 +157,33 @@ export class PaymentsImportService
         }
     }
 
+    private FormatCashTransactionId(year: number, month: number, counter: number)
+    {
+        const monthStr = (month < 10) ? ("0" + month) : month.toString();
+        const nr = counter + 1;
+        const nrStr = nr.toString();
+        return year + monthStr + "-" + nrStr;
+    }
+
     private async MergePayments(existingPayment: Payment, parsedPayment: ParsedPayment)
     {
-        const sender = await this.identitiesController.QueryIdentity(existingPayment.identityId);
+        const receiver = await this.identitiesController.QueryIdentity(existingPayment.receiverId);
+        const sender = await this.identitiesController.QueryIdentity(existingPayment.senderId);
         
         const existingAsParsed: ParsedPayment = {
             type: existingPayment.type,
             currency: existingPayment.currency,
             timeStamp: existingPayment.timestamp,
             grossAmount: existingPayment.grossAmount,
-            participantId: sender?.paymentAccounts.find(x => x.paymentServiceId === existingPayment.paymentServiceId)?.externalAccount ?? "",
+            receiverId: receiver?.paymentAccounts.find(x => x.paymentServiceId === existingPayment.paymentServiceId)?.externalAccount ?? "",
+            senderId: sender?.paymentAccounts.find(x => x.paymentServiceId === existingPayment.paymentServiceId)?.externalAccount ?? "",
             transactionFee: existingPayment.transactionFee,
             transactionId: existingPayment.externalTransactionId,
             note: existingPayment.note,
 
             //unimportant
-            participantName: parsedPayment.participantName
+            senderName: parsedPayment.senderName,
+            receiverName: parsedPayment.receiverName
         };
         if(!existingAsParsed.Equals(parsedPayment))
         {
@@ -134,7 +194,14 @@ export class PaymentsImportService
 
     private ValidatePayment(payment: ParsedPayment)
     {
-        if(payment.participantId.trim().length === 0)
-            return "Payment " + payment.transactionId + " does not contain a valid sender/receiver";
+        if(payment.senderId.trim().length === 0)
+            return "Payment " + payment.transactionId + " does not contain a valid sender";
+        if(payment.type === PaymentType.Withdrawal)
+            payment.receiverId = payment.senderId;
+        else
+        {
+            if(payment.receiverId.trim().length === 0)
+                return "Payment " + payment.transactionId + " does not contain a valid receiver";
+        }
     }
 }

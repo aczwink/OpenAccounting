@@ -15,19 +15,35 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
-import { Injectable, Component, RouterButton, JSX_CreateElement, BootstrapIcon } from "acfrontend";
+import { RouterButton, JSX_CreateElement, BootstrapIcon, UseAPI, Use, Anchor } from "acfrontend";
 import { APIService } from "../APIService";
+import { ProductDTO } from "../../dist/api";
+import { RenderMonetaryValue } from "../shared/money";
 
-@Injectable
-export class ProductListComponent extends Component
+function InternalProductListComponent(input: { products: ProductDTO[] })
 {
-    constructor(private apiService: APIService)
-    {
-        super();
-    }
-    
-    protected Render(): RenderValue
-    {
-        return <RouterButton color="primary" route="/products/add"><BootstrapIcon>plus</BootstrapIcon></RouterButton>;
-    }
+    return <table className="table table-sm table-striped">
+        <thead>
+            <th>Title</th>
+            <th>Price</th>
+        </thead>
+        <tbody>
+            {input.products.map(x => <tr>
+            <td>
+                <Anchor route={"/products/" + x.id}>{x.title}</Anchor>
+            </td>
+            <td>{RenderMonetaryValue(x.price, x.currency)}</td>
+        </tr>)}
+    </tbody>
+    <caption>Showing {input.products.length} products.</caption>
+</table>;
+}
+
+export function ProductListComponent()
+{
+    const apiState = UseAPI(() => Use(APIService).products.get(), data => data.SortBy(x => x.price));
+    return <div className="container">
+        {apiState.success ? <InternalProductListComponent products={apiState.data} /> : apiState.fallback}
+        <RouterButton color="primary" route="/products/add"><BootstrapIcon>plus</BootstrapIcon></RouterButton>
+    </div>;
 }

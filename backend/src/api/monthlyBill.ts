@@ -15,12 +15,23 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
-import "./api/accounting";
-import "./api/assets";
-import "./api/identities";
-import "./api/monthlyBill";
-import "./api/items";
-import "./api/payments";
-import "./api/products";
-import "./api/reporting";
-import "./api/subscriptions";
+
+import { APIController, Get, Query } from "acts-util-apilib";
+import { MonthlyBillService } from "../services/MonthlyBillService.js";
+
+@APIController("monthlyBill")
+class _api_
+{
+    constructor(private monthlyBillService: MonthlyBillService)
+    {
+    }
+
+    @Get()
+    public async GenerateInvoice(
+        @Query year: number,
+        @Query month: number,
+    )
+    {
+        return this.monthlyBillService.GenerateMonthlyBillPDF(year, month);
+    }
+}

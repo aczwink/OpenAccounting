@@ -17,8 +17,9 @@
  * */
 
 import { Injectable } from "acts-util-node";
-import { PaymentsController } from "../data-access/PaymentsController";
+import { PaymentLink, PaymentsController } from "../data-access/PaymentsController";
 import { ItemsController } from "../data-access/ItemsController";
+import { Money } from "@dintero/money";
 
 @Injectable
 export class PaymentAssociationService
@@ -28,10 +29,57 @@ export class PaymentAssociationService
     }
 
     //Public methods
-    public async Associate(paymentId: number, itemId: number)
+    public async AssociateWithPayment(paymentId: number, link: PaymentLink)
     {
-        await this.paymentsController.AddAssociation(paymentId, itemId);
+        await this.paymentsController.CreatePaymentLink(paymentId, link);
+
+        await this.CheckOpenPaymentStatus(paymentId);
+        await this.CheckOpenPaymentStatus(link.paymentId);
+    }
+
+    public async AssociateWithItem(paymentId: number, itemId: number)
+    {
+        await this.paymentsController.AddItemAssociation(paymentId, itemId);
         await this.itemsController.RemoveItemFromOpenItemsList(itemId);
-        await this.paymentsController.RemovePaymentFromOpenPaymentsList(paymentId);
+
+        await this.CheckOpenPaymentStatus(paymentId);
+    }
+
+    //Private methods
+    private async CheckOpenPaymentStatus(paymentId: number)
+    {
+        const payment = await this.paymentsController.QueryPayment(paymentId);
+        if(payment === undefined)
+            throw new Error("should never happen1");
+
+        const itemIds = await this.paymentsController.QueryAssociatedItems(paymentId);
+        const linked = await this.paymentsController.QueryPaymentLinks(paymentId, "outgoing");
+
+        const amount = Money.of(payment.grossAmount, payment.currency);
+        let sum = amount;
+        for (const itemId of itemIds)
+        {
+            const item = await this.itemsController.QueryItem(itemId);
+            if(item === undefined)
+                throw new Error("should never happen2");
+
+            const itemAmount = Money.of(item.amount, item.currency);
+            sum = sum.subtract(itemAmount);
+        }
+
+        for (const link of linked)
+        {
+            const linkedPayment = await this.paymentsController.QueryPayment(link.paymentId);
+            if(linkedPayment === undefined)
+                throw new Error("should never happen3");
+
+            const linkedAmount = Money.of(link.amount, linkedPayment.currency);
+            sum = sum.subtract(linkedAmount);
+        }
+
+        if(sum.isZero())
+        {
+            await this.paymentsController.RemovePaymentFromOpenPaymentsList(paymentId);
+        }
     }
 }

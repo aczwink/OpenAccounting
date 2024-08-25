@@ -107,7 +107,7 @@ export class ImportPaymentsComponent extends Component
 
     override async OnInitiated(): Promise<void>
     {
-        const response = await this.apiService.payments.services.get();
+        const response = await this.apiService.payments.services.get({});
         this.selectedPaymentId = response.data[0].id;
         this.paymentsServices = response.data;
     }

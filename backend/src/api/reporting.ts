@@ -16,20 +16,33 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { DateTime } from "acts-util-node";
-import { PaymentType } from "../data-access/PaymentsController";
+import { APIController, Get } from "acts-util-apilib";
+import { MoneyDistributionService } from "../services/MoneyDistributionService";
 
-export interface ParsedPayment
+interface MoneyDistributionDTO
 {
-    type: PaymentType;
+    amount: string;
     currency: string;
-    timeStamp: DateTime;
-    grossAmount: string;
-    transactionFee: string;
-    senderId: string;
-    senderName: string;
-    receiverId: string;
-    receiverName: string;
-    transactionId: string;
-    note: string;
+    identityId: number;
+    paymentServiceId: number;
+}
+
+@APIController("reporting")
+class _api_
+{
+    constructor(private moneyDistributionService: MoneyDistributionService)
+    {
+    }
+
+    @Get("moneyDistributon")
+    public async RequestMoneyDistribution()
+    {
+        const deposits = await this.moneyDistributionService.Compute();
+        return deposits.map<MoneyDistributionDTO>(x => ({
+            amount: x.amount.toString(),
+            currency: x.amount.currency(),
+            identityId: x.identityId,
+            paymentServiceId: x.paymentServiceId
+        }));
+    }
 }

@@ -15,12 +15,16 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
-import "./api/accounting";
-import "./api/assets";
-import "./api/identities";
-import "./api/monthlyBill";
-import "./api/items";
-import "./api/payments";
-import "./api/products";
-import "./api/reporting";
-import "./api/subscriptions";
+
+import { Injectable } from "acts-util-node";
+import { Money } from "@dintero/money";
+import { Payment } from "../data-access/PaymentsController";
+
+@Injectable
+export class FinanceService
+{
+    public ComputeNetAmount(payment: Payment)
+    {
+        return Money.of(payment.grossAmount, payment.currency).add(Money.of(payment.transactionFee, payment.currency));
+    }
+}

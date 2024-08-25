@@ -15,12 +15,19 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
-import "./api/accounting";
-import "./api/assets";
-import "./api/identities";
-import "./api/monthlyBill";
-import "./api/items";
-import "./api/payments";
-import "./api/products";
-import "./api/reporting";
-import "./api/subscriptions";
+
+import { Anchor, JSX_CreateElement, ProgressSpinner, Use, UseEffectOnce, UseState } from "acfrontend";
+import { CachedAPIService } from "../CachedAPIService";
+import { ProductDTO } from "../../dist/api";
+
+export function ProductReferenceComponent(input: { id: number })
+{
+    const state = UseState({
+        product: null as ProductDTO | null
+    });
+    UseEffectOnce(async () => state.product = await Use(CachedAPIService).RequestProduct(input.id));
+
+    if(state.product === null)
+        return <ProgressSpinner />;
+    return <Anchor route={"/products/" + state.product.id}>{state.product.title}</Anchor>;
+}

@@ -16,20 +16,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { APIStateHandler, CallAPI, CheckBox, InitAPIState, JSX_CreateElement, JSX_Fragment, PushButton, Router, Use, UseEffectOnce, UseRouteParameter, UseState } from "acfrontend";
+import { APIStateHandler, BootstrapIcon, CallAPI, InitAPIState, JSX_CreateElement, JSX_Fragment, PushButton, Router, RouterButton, Use, UseEffectOnce, UseRouteParameter, UseState } from "acfrontend";
 import { APIService } from "../APIService";
-import { PaymentListComponent } from "./PaymentListComponent";
 import { Item, PaymentDTO } from "../../dist/api";
 import { ItemsListComponent } from "../booking/ItemsListComponent";
+import { PaymentInfoDetailsComponent } from "./ViewPaymentDetailsComponent";
 
 export function AssociatePaymentComponent()
 {
-    function OnAssociate()
+    function OnAssociate(itemId: number)
     {
         CallAPI(
-            () => Use(APIService).payments.items._any_.post(paymentId, { itemId: state.selectedItemId! }),
+            () => Use(APIService).payments.items._any_.post(paymentId, { itemId }),
             state.links.assocAPIState,
-            () => Use(Router).RouteTo("/payments/open")
+            () => Use(Router).RouteTo("/payments/list/open")
         );
     }
 
@@ -39,7 +39,6 @@ export function AssociatePaymentComponent()
         assocAPIState: InitAPIState(),
         itemsAPIState: InitAPIState<Item[]>(),
         paymentAPIState: InitAPIState<PaymentDTO>(),
-        selectedItemId: null as number | null
     });
 
     UseEffectOnce(() => {
@@ -56,9 +55,9 @@ export function AssociatePaymentComponent()
 
     return <>
         <h4>Associate payment:</h4>
-        <PaymentListComponent payments={[state.paymentAPIState.data]} />
+        <PaymentInfoDetailsComponent payment={state.paymentAPIState.data} />
         <h5>With item:</h5>
-        <ItemsListComponent items={state.itemsAPIState.data} actionsColumnName="Select" renderAdditionalActions={i => <CheckBox value={state.selectedItemId === i.id} onChanged={newValue => newValue ? state.selectedItemId = i.id : null} />} />
-        <PushButton color="primary" enabled={state.selectedItemId !== null} onActivated={OnAssociate}>Associate</PushButton>
+        <ItemsListComponent items={state.itemsAPIState.data} actionsColumnName="Select" renderAdditionalActions={i => <PushButton small color="success" enabled={true} onActivated={OnAssociate.bind(null, i.id)}>Associate</PushButton>} />
+        <RouterButton color="primary" route={"/payments/" + paymentId + "/associate/createitem"}><BootstrapIcon>plus</BootstrapIcon> Create</RouterButton>
     </>;
 }

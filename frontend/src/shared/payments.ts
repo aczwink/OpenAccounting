@@ -23,8 +23,8 @@ export function PaymentTypeToString(type: PaymentType, grossAmount: string)
     switch(type)
     {
         case PaymentType.Normal:
-            return grossAmount.startsWith("-") ? "Outbound" : "Inbound";
+            return grossAmount.startsWith("-") ? "outbound" : "inbound";
         case PaymentType.Withdrawal:
-            return "Withdrawal";
+            return "withdrawal";
     }
 }

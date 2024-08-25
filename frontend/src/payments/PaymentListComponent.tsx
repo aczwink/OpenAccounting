@@ -17,28 +17,29 @@
  * */
 
 import { BootstrapIcon, Component, JSX_CreateElement, RouterButton } from "acfrontend";
-import { PaymentDTO, PaymentType } from "../../dist/api";
+import { PaymentDTO } from "../../dist/api";
 import { PaymentServiceComponent } from "./PaymentServiceComponent";
 import { IdentityReferenceComponent } from "../identities/IdentityReferenceComponent";
 import { RenderMonetaryValue } from "../shared/money";
 import { PaymentTypeToString } from "../shared/payments";
 
-export class PaymentListComponent extends Component<{ payments: PaymentDTO[]; renderAdditionalActions?: (p: PaymentDTO) => RenderValue }>
+export class PaymentListComponent<T extends PaymentDTO = PaymentDTO> extends Component<{ payments: T[]; additionalColumns?: string[]; renderAdditionalActions?: (p: T) => RenderValue, renderAdditionalColumns?: (column: number, p: T) => RenderValue }>
 {
     protected Render(): RenderValue
     {
-        return <table className="table table-sm table-striped">
+        return <table className="table table-sm table-striped table-hover">
             <thead>
                 <th>Date and time</th>
                 <th>Paid with</th>
                 <th>Transaction code</th>
                 <th>Type</th>
-                <th>Sender/Receiver</th>
+                <th>Sender</th>
+                <th>Receiver</th>
                 <th>Amount (gross)</th>
                 <th>Transaction fee</th>
                 <th>Amount (net)</th>
-                <th>Currency</th>
                 <th>Note</th>
+                {this.input.additionalColumns?.map(x => <th>{x}</th>)}
                 <th>Actions</th>
             </thead>
             <tbody>
@@ -49,7 +50,7 @@ export class PaymentListComponent extends Component<{ payments: PaymentDTO[]; re
     }
 
     //Private methods
-    private RenderPayment(p: PaymentDTO)
+    private RenderPayment(p: T)
     {
         const addtionalActions = (this.input.renderAdditionalActions === undefined) ? null : this.input.renderAdditionalActions(p);
         return <tr>
@@ -57,15 +58,16 @@ export class PaymentListComponent extends Component<{ payments: PaymentDTO[]; re
             <td><PaymentServiceComponent paymentServiceId={p.paymentServiceId} /></td>
             <td>{p.externalTransactionId}</td>
             <td>{PaymentTypeToString(p.type, p.grossAmount)}</td>
-            <td><IdentityReferenceComponent identityId={p.identityId} /></td>
-            <td>{RenderMonetaryValue(p.grossAmount)}</td>
-            <td>{RenderMonetaryValue(p.transactionFee)}</td>
-            <td>{RenderMonetaryValue(p.netAmount)}</td>
-            <td>{p.currency}</td>
+            <td><IdentityReferenceComponent identityId={p.senderId} /></td>
+            <td><IdentityReferenceComponent identityId={p.receiverId} /></td>
+            <td>{RenderMonetaryValue(p.grossAmount, p.currency)}</td>
+            <td>{RenderMonetaryValue(p.transactionFee, p.currency)}</td>
+            <td>{RenderMonetaryValue(p.netAmount, p.currency)}</td>
             <td>{p.note}</td>
+            {this.input.additionalColumns?.map((_, i) => <td>{this.input.renderAdditionalColumns!(i, p)}</td>)}
             <td>
                 <div className="btn-group">
-                    <RouterButton className="btn-sm" color="primary" route={"/payments/details/" + p.id}><BootstrapIcon>zoom-in</BootstrapIcon> View details</RouterButton>
+                    <RouterButton className="btn-sm" color="primary" route={"/payments/" + p.id}><BootstrapIcon>zoom-in</BootstrapIcon> View details</RouterButton>
                     {addtionalActions}
                 </div>
             </td>

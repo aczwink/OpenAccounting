@@ -18,6 +18,7 @@
 
 import { DateTime, Injectable } from "acts-util-node";
 import { DatabaseController } from "./DatabaseController";
+import { ManualPaymentCreationData } from "../services/PaymentsImportService";
 
 export enum PaymentType
 {
@@ -30,7 +31,8 @@ interface PaymentCreationData
     type: PaymentType;
     paymentServiceId: number;
     externalTransactionId: string;
-    identityId: number;
+    senderId: number;
+    receiverId: number;
     timestamp: DateTime;
     grossAmount: string;
     transactionFee: string;
@@ -43,15 +45,28 @@ export interface Payment extends PaymentCreationData
     id: number;
 }
 
+export enum PaymentLinkReason
+{
+    CashDeposit = 0
+}
+
+export interface PaymentLink
+{
+    paymentId: number;
+    amount: string;
+    reason: PaymentLinkReason;
+}
+
 interface PaymentService
 {
     id: number;
     name: string;
 }
 
+export type PaymentServiceType = "cash" | "paypal";
 interface FullPaymentServiceData extends PaymentService
 {
-    type: string;
+    type: PaymentServiceType;
     externalAccount: string;
 }
 
@@ -63,18 +78,35 @@ export class PaymentsController
     }
 
     //Public methods
-    public async AddAssociation(paymentId: number, itemId: number)
+    public async AddItemAssociation(paymentId: number, itemId: number)
     {
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
-        const result = await exector.InsertRow("payments_items", { paymentId, itemId });
+        await exector.InsertRow("payments_items", { paymentId, itemId });
     }
 
-    public async AddPayment(payment: PaymentCreationData)
+    public async CreatePayment(payment: PaymentCreationData)
     {
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
         const result = await exector.InsertRow("payments", payment);
         await exector.InsertRow("payments_open", { paymentId: result.insertId });
         return result.insertId;
+    }
+
+    public async CreatePaymentLink(paymentId: number, link: PaymentLink)
+    {
+        const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
+        await exector.InsertRow("payments_links", {
+            paymentId,
+            linkedPaymentId: link.paymentId,
+            amount: link.amount,
+            reason: link.reason
+        });
+    }
+
+    public async UpdatePayment(paymentId: number, paymentData: ManualPaymentCreationData)
+    {
+        const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
+        await exector.UpdateRows("payments", paymentData, "id = ?", paymentId);
     }
 
     public async FindPayment(paymentServiceId: number, externalTransactionId: string)
@@ -98,24 +130,82 @@ export class PaymentsController
         return row;
     }
 
-    public async QueryPayments(month: number, year: number)
+    public async QueryPaymentLinks(paymentId: number, direction: "outgoing" | "incoming")
     {
+        const columns = ["paymentId", "linkedPaymentId"];
+        const filterColumn = direction === "outgoing" ? columns[0] : columns[1];
+        const queryColumn = direction === "outgoing" ? columns[1] : columns[0];
+
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
-        const rows = await exector.Select<Payment>("SELECT * FROM payments WHERE YEAR(timestamp) = ? AND MONTH(timestamp) = ?", year, month);
+        const rows = await exector.Select<PaymentLink>("SELECT reason, amount, " + queryColumn + " AS paymentId FROM payments_links WHERE " + filterColumn + " = ?", paymentId);
+        return rows;
+    }
+
+    public async QueryPaymentsCountForServiceInRange(paymentServiceId: number, inclusiveStart: DateTime, inclusiveEnd: DateTime)
+    {
+        const query = `
+        SELECT COUNT(*) AS cnt
+        FROM payments
+        WHERE paymentServiceId = ?
+        AND timestamp >= ? AND timestamp <= ?
+        `;
+        const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
+        const row = await exector.SelectOne(query, paymentServiceId, inclusiveStart, inclusiveEnd);
+        console.log(row);
+        if(row === undefined)
+            return 0;
+        return parseInt(row.cnt);
+    }
+
+    public async QueryPaymentsInRange(inclusiveStart: DateTime, inclusiveEnd: DateTime)
+    {
+        const query = `
+        SELECT * FROM payments
+        WHERE timestamp >= ? AND timestamp <= ?
+        ORDER BY timestamp ASC
+        `;
+
+        const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
+        const rows = await exector.Select<Payment>(query, inclusiveStart, inclusiveEnd);
+        return rows;
+    }
+
+    public async QueryNonOpenPayments()
+    {
+        const query = `
+        SELECT * FROM payments p
+        LEFT JOIN payments_open po
+        ON po.paymentId = p.id
+        WHERE po.paymentId IS NULL
+        `;
+        const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
+        const rows = await exector.Select<Payment>(query);
         return rows;
     }
 
     public async QueryOpenPayments()
     {
+        const query = `
+        SELECT p.*
+        FROM payments p
+        INNER JOIN payments_open po
+            ON po.paymentId = p.id
+        ORDER BY p.timestamp ASC
+        LIMIT 50
+        `;
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
-        const rows = await exector.Select<Payment>("SELECT p.* FROM payments p INNER JOIN payments_open po ON po.paymentId = p.id LIMIT 50");
+        const rows = await exector.Select<Payment>(query);
         return rows;
     }
 
-    public async QueryServices()
+    public async QueryServices(type?: PaymentServiceType)
     {
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
-        return exector.Select<PaymentService>("SELECT id, name FROM paymentServices");
+        if(type === undefined)
+        {
+            return exector.Select<PaymentService>("SELECT id, name FROM paymentServices");
+        }
+        return exector.Select<PaymentService>("SELECT id, name FROM paymentServices WHERE type = ?", type);
     }
 
     public async QueryService(paymentServiceId: number)

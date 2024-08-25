@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { BootstrapIcon, Component, Injectable, JSX_CreateElement, ProgressSpinner, RouterButton } from "acfrontend";
+import { Anchor, BootstrapIcon, Component, Injectable, JSX_CreateElement, ProgressSpinner } from "acfrontend";
 import { APIService } from "../APIService";
 import { PaymentListComponent } from "./PaymentListComponent";
 import { PaymentDTO } from "../../dist/api";
@@ -35,11 +35,25 @@ export class OpenPaymentsComponent extends Component
     {
         if(this.data === null)
             return <ProgressSpinner />;
-        return <PaymentListComponent payments={this.data} renderAdditionalActions={p => <RouterButton className="btn-sm" color="secondary" route={"/payments/associate/" + p.id}><BootstrapIcon>link</BootstrapIcon> Link with item</RouterButton>} />
+        return <PaymentListComponent payments={this.data} renderAdditionalActions={this.RenderActions.bind(this)} />
     }
 
     //Private state
     private data: PaymentDTO[] | null;
+
+    //Private methods
+    private RenderActions(payment: PaymentDTO)
+    {
+        return <div className="dropdown">
+            <button className="btn btn-sm btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <BootstrapIcon>link</BootstrapIcon> Link
+            </button>
+            <ul className="dropdown-menu">
+                <li><Anchor className="dropdown-item" route={"/payments/" + payment.id + "/associate"}>with item</Anchor></li>
+                <li><Anchor className="dropdown-item" route={"/payments/" + payment.id + "/link"}>with payment</Anchor></li>
+            </ul>
+        </div>;
+    }
 
     //Event handlers
     override async OnInitiated(): Promise<void>
