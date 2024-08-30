@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { APIStateHandler, CallAPI, DataLink, DateTimePicker, FormField, InitAPIState, JSX_CreateElement, JSX_Fragment, PushButton, RadioButton, Select, TextArea, Use, UseAPI, UseState } from "acfrontend";
+import { DataLink, DateTimePicker, FormField, JSX_CreateElement, JSX_Fragment, PushButton, RadioButton, Select, TextArea, Use, UseAPI, UseDeferredAPI, UseState } from "acfrontend";
 import { APIService } from "../APIService";
 import { IdentityOverviewData, ItemSaleType, ProductDTO, Subscription } from "../../dist/api";
 import { RenderMonetaryEditControl } from "../shared/money";
@@ -92,20 +92,6 @@ function InternalCreateItemComponent(input: { identities: IdentityOverviewData[]
         }
     }
 
-    function OnAdd()
-    {
-        CallAPI(
-            () => Use(APIService).items.post({
-                timestamp: state.saleDate,
-                debtorId: state.debtorId,
-                note: state.note,
-                saleType: StateToSaleType()
-            }),
-            state.links.apiState,
-            id => input.onCreated(id)
-        );
-    }
-
     const state = UseState({
         saleDate: input.init.timeStamp,
         debtorId: input.init.debtorId,
@@ -115,11 +101,19 @@ function InternalCreateItemComponent(input: { identities: IdentityOverviewData[]
         amount: input.init.amount,
         currency: "EUR",
         note: "",
-        apiState: InitAPIState<number>()
     });
+    const apiState = UseDeferredAPI(
+        () => Use(APIService).items.post({
+            timestamp: state.saleDate,
+            debtorId: state.debtorId,
+            note: state.note,
+            saleType: StateToSaleType()
+        }),
+        id => input.onCreated(id)
+    );
     
-    if(state.apiState.started)
-        return <APIStateHandler state={state.apiState} />;
+    if(apiState.started)
+        return apiState.fallback;
 
     const isValid = (state.debtorId !== 0) && IsValid(state.saleType, state.productId, state.subscriptionId, state.note);
     return <div className="container">
@@ -144,7 +138,7 @@ function InternalCreateItemComponent(input: { identities: IdentityOverviewData[]
         <FormField title="Note" description="Additional notes for this item">
             <TextArea value={state.note} onChanged={newValue => state.note = newValue} />
         </FormField>
-        <PushButton color="primary" enabled={isValid} onActivated={OnAdd}>Create</PushButton>
+        <PushButton color="primary" enabled={isValid} onActivated={apiState.start}>Create</PushButton>
     </div>;
 }
 

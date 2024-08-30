@@ -33,6 +33,10 @@ interface ImportResult
 export interface ManualPaymentCreationData
 {
     currency: string;
+    /**
+     * Must be "" for cash payments
+     */
+    externalTransactionId: string;
     grossAmount: string;
     note: string;
     paymentServiceId: number;
@@ -53,16 +57,13 @@ export class PaymentsImportService
     public async CreatePayment(paymentData: ManualPaymentCreationData)
     {
         const service = await this.paymentsController.QueryService(paymentData.paymentServiceId);
-        if(service.type !== "cash")
-            throw new Error("Can only create manual payments for cash payments");
-
         const { year, month } = await this.accountingMonthService.FindAccountingMonth(paymentData.timestamp);
-        const range = await this.accountingMonthService.CalculateUTCRangeOfAccountingMonth(year, month);
-        const count = await this.paymentsController.QueryPaymentsCountForServiceInRange(paymentData.paymentServiceId, range.inclusiveStart, range.inclusiveEnd)
-        console.log({ count });
-        throw new Error("why the fuck is the count not of type str?");
+        const counter = await this.accountingMonthService.FetchNextCashTransactionCounter(year, month);
 
-        const transactionId = this.FormatCashTransactionId(year, month, count);
+        if((service.type === "cash") && (paymentData.externalTransactionId !== ""))
+            throw new Error("Cash payment transaction ids are automatically assigned");
+
+        const transactionId = (service.type === "cash") ? this.FormatCashTransactionId(year, month, counter) : paymentData.externalTransactionId;
 
         return await this.paymentsController.CreatePayment({
             currency: paymentData.currency,
@@ -121,14 +122,14 @@ export class PaymentsImportService
         let senderId = await this.identitiesController.FindIdentity(paymentServiceId, payment.senderId);
         if(senderId === undefined)
         {
-            senderId = await this.identitiesController.CreateIdentity(payment.senderName || payment.senderId);
+            senderId = await this.CreateIdentity(payment.senderName || payment.senderId);
             await this.identitiesController.AddPaymentAccount(senderId, paymentServiceId, payment.senderId);
         }
 
         let receiverId = await this.identitiesController.FindIdentity(paymentServiceId, payment.receiverId);
         if(receiverId === undefined)
         {
-            receiverId = await this.identitiesController.CreateIdentity(payment.receiverName || payment.receiverId);
+            receiverId = await this.CreateIdentity(payment.receiverName || payment.receiverId);
             await this.identitiesController.AddPaymentAccount(receiverId, paymentServiceId, payment.receiverId);
         }
 
@@ -146,6 +147,14 @@ export class PaymentsImportService
         });
     }
 
+    private async CreateIdentity(name: string)
+    {
+        const parts = name.split(" ");
+        const firstName = parts.slice(0, parts.length - 1).join(" ");
+        const lastName = parts[parts.length - 1];
+        return await this.identitiesController.CreateIdentity({ firstName, lastName, notes: "" });
+    }
+
     private CreatePaymentsParser(type: string)
     {
         switch(type)
@@ -160,8 +169,7 @@ export class PaymentsImportService
     private FormatCashTransactionId(year: number, month: number, counter: number)
     {
         const monthStr = (month < 10) ? ("0" + month) : month.toString();
-        const nr = counter + 1;
-        const nrStr = nr.toString();
+        const nrStr = counter.toString();
         return year + monthStr + "-" + nrStr;
     }
 

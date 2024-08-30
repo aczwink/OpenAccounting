@@ -30,7 +30,7 @@ export interface ItemCreationData
     note: string;
 }
 
-interface Item extends ItemCreationData
+export interface Item extends ItemCreationData
 {
     id: number;
 }

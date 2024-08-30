@@ -45,6 +45,12 @@ export class DatabaseController
         return startYear.toString() + "-" + startMonth.toString() + "-01"
     }
 
+    public async GetFreeConnection()
+    {
+        const instance = await this.GetPoolInstance();
+        return instance.value.GetFreeConnection();
+    }
+
     //Private state
     private pool: DBResource<DBConnectionPool> | null;
 

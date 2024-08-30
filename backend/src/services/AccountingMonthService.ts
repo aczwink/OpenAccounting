@@ -70,7 +70,12 @@ export class AccountingMonthService
             });
         }
 
-        await this.accountingMonthsController.Add(year, month);
+        await this.accountingMonthsController.Create(year, month);
+    }
+
+    public FetchNextCashTransactionCounter(year: number, month: number)
+    {
+        return this.accountingMonthsController.FetchNextCashTransactionCounter(year, month);
     }
 
     public async FindAccountingMonth(timeStamp: DateTime)

@@ -16,41 +16,43 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { UseRouteParameter, UseAPI, Use, JSX_CreateElement, JSX_Fragment, PushButton, UseState, CallAPI, InitAPIState, Router, LoadingButton, FormField } from "acfrontend";
+import { UseRouteParameter, UseAPI, Use, JSX_CreateElement, JSX_Fragment, PushButton, UseState, Router, LoadingButton, FormField, UseDeferredAPI, Select } from "acfrontend";
 import { APIService } from "../APIService";
-import { PaymentDTO } from "../../dist/api";
+import { PaymentDTO, PaymentLinkReason } from "../../dist/api";
 import { PaymentInfoDetailsComponent } from "./ViewPaymentDetailsComponent";
 import { PaymentsPerMonthComponent } from "./PaymentsPerMonthComponent";
 import { Of } from "acts-util-core";
 import { RenderMonetaryEditControl } from "../shared/money";
+import { PaymentLinkReasonToString } from "../shared/payments";
 
 function LinkFinalComponent(input: { linkedPayment: PaymentDTO; paymentId: number })
 {
-    function OnAssociate()
-    {
-        CallAPI( 
-            () => Use(APIService).payments.link._any_.post(input.paymentId, {
-                amount: state.amount,
-                paymentId: input.linkedPayment.id,
-                reason: 0
-            }),
-            state.links.assocState,
-            () => Use(Router).RouteTo("/payments/list/open")
-        )
-    }
-
     const state = UseState({
-        assocState: InitAPIState(),
-        amount: input.linkedPayment.grossAmount
+        amount: input.linkedPayment.grossAmount,
+        reason: PaymentLinkReason.CashDeposit
     });
+    const apiState = UseDeferredAPI(
+        () => Use(APIService).payments.link._any_.post(input.paymentId, {
+            amount: state.amount,
+            paymentId: input.linkedPayment.id,
+            reason: state.reason
+        }),
+        () => Use(Router).RouteTo("/payments/list/open")
+    );
 
+    const reasons = [PaymentLinkReason.CashDeposit, PaymentLinkReason.PrivateDisbursement];
     return <>
         <PaymentInfoDetailsComponent payment={input.linkedPayment} />
         <div className="container">
             <FormField title="Amount" description="What amount of the original payment should be associated?">
                 {RenderMonetaryEditControl(state.links.amount, input.linkedPayment.currency)}
             </FormField>
-            <LoadingButton color="primary" enabled={!state.assocState.started} isLoading={state.assocState.started} onActivated={OnAssociate}>Associate</LoadingButton>
+            <FormField title="Reason" description="Why are these payments linked?">
+                <Select onChanged={newValue => state.reason = parseInt(newValue[0])}>
+                    {reasons.map(x => <option value={x} selected={x === state.reason}>{PaymentLinkReasonToString(x)}</option>)}
+                </Select>
+            </FormField>
+            <LoadingButton color="primary" enabled={!apiState.started} isLoading={apiState.started} onActivated={apiState.start}>Associate</LoadingButton>
         </div>
     </>;
 }

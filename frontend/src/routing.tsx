@@ -33,9 +33,10 @@ import { ItemsPerMonthComponent } from "./booking/ItemsPerMonthComponent";
 import { ViewItemDetailsComponent } from "./booking/ViewItemDetailsComponent";
 import { CreateProductComponent } from "./products/CreateProductComponent";
 import { ViewProductComponent } from "./products/ViewProductComponent";
-import { CreateItemComponent } from "./booking/CreateItemComponent";
 import { MoneyDistributionComponent } from "./reporting/MoneyDistributionComponent";
 import { paymentsRoutes } from "./payments/routing";
+import { CreatePaymentBasedOnItem } from "./booking/CreatePaymentBasedOnItem";
+import { CreateIdentityComponent } from "./identities/CreateIdentityComponent";
 
 const bookingListingRoutes: Routes = [
     { path: "accountingmonths/create", component: <CreateAccountingMonthComponent /> },
@@ -46,12 +47,13 @@ const bookingListingRoutes: Routes = [
 ];
 
 const bookingRoutes: Routes = [
-    //{ path: "items/create", component: <CreateItemComponent /> },
+    { path: "items/{itemId}/createpayment", component: <CreatePaymentBasedOnItem /> },
     { path: "items/{itemId}", component: <ViewItemDetailsComponent /> },
     { path: "", component: <BookingComponent />, children: bookingListingRoutes },
 ];
 
 const identitiesRoutes: Routes = [
+    { path: "create", component: <CreateIdentityComponent /> },
     { path: "edit/{identityId}", component: <EditIdentityComponent /> },
     { path: "{identityId}", component: ShowIdentityComponent },
     { path: "", component: <IdentitiesListComponent /> },

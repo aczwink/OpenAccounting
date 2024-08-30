@@ -47,7 +47,8 @@ export class MoneyDistributionService
         for (const payment of payments)
         {
             const netAmount = this.financeService.ComputeNetAmount(payment);
-            this.AddToDeposit(deposits, payment.receiverId, payment.paymentServiceId, netAmount);
+            const identityId = netAmount.isNegative() ? payment.senderId : payment.receiverId;
+            this.AddToDeposit(deposits, identityId, payment.paymentServiceId, netAmount);
 
             const links = await this.paymentsController.QueryPaymentLinks(payment.id, "outgoing");
             if(links.length > 0)
@@ -59,6 +60,11 @@ export class MoneyDistributionService
                         case PaymentLinkReason.CashDeposit:
                             //subtract amount from sender deposit
                             this.AddToDeposit(deposits, payment.senderId, cashServiceId, Money.of("-" + link.amount, payment.currency));
+                            break;
+                        case PaymentLinkReason.PrivateDisbursement:
+                            //increase amount of person who sent the linked payment (the private disbursement) and compensated using this payment
+                            const linkedPayment = await this.paymentsController.QueryPayment(link.paymentId);
+                            this.AddToDeposit(deposits, payment.receiverId, linkedPayment!.paymentServiceId, Money.of(link.amount, payment.currency).abs());
                             break;
                         default:
                             throw new Error("NOT IMPLEMENTED");

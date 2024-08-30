@@ -16,26 +16,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { PaymentLinkReason, PaymentType } from "../../dist/api";
+import { JSX_CreateElement, Use, UseState } from "acfrontend";
+import { IdentityFormComponent } from "./IdentityFormComponent";
+import { APIService } from "../APIService";
+import { IdentityCreationData } from "../../dist/api";
 
-export function PaymentLinkReasonToString(type: PaymentLinkReason)
+export function CreateIdentityComponent()
 {
-    switch(type)
+    async function Save(data: IdentityCreationData)
     {
-        case PaymentLinkReason.CashDeposit:
-            return "cash deposit";
-        case PaymentLinkReason.PrivateDisbursement:
-            return "compensation for private disbursement";
+        const response = await Use(APIService).identities.post(data);
+        state.identityId = response.data;
+        return response;
     }
-}
 
-export function PaymentTypeToString(type: PaymentType, grossAmount: string)
-{
-    switch(type)
-    {
-        case PaymentType.Normal:
-            return grossAmount.startsWith("-") ? "outbound" : "inbound";
-        case PaymentType.Withdrawal:
-            return "withdrawal";
-    }
+    const state = UseState({
+        identityId: 0
+    });
+    return <IdentityFormComponent init={{ firstName: "", lastName: "", notes: ""}} provideIdentityId={() => state.identityId} saveAPI={Save} />;
 }

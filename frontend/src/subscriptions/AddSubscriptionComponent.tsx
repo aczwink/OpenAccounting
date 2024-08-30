@@ -16,28 +16,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { APIStateHandler, CallAPI, FormField, InitAPIState, JSX_CreateElement, JSX_Fragment, LineEdit, PushButton, Router, Use, UseState } from "acfrontend";
+import { FormField, JSX_CreateElement, JSX_Fragment, LineEdit, PushButton, Router, Use, UseDeferredAPI, UseState } from "acfrontend";
 import { APIService } from "../APIService";
 
 export function AddSubscriptionComponent()
 {
-    async function OnAdd()
-    {
-        CallAPI(
-            () => Use(APIService).subscriptions.post({ name: state.name, price: state.price }),
-            state.links.apiState,
-            id => Use(Router).RouteTo("/subscriptions/" + id)
-        );
-    }
-
     const state = UseState({
         name: "",
         price: "",
-        apiState: InitAPIState<number>()
     });
+    const apiState = UseDeferredAPI(
+        () => Use(APIService).subscriptions.post({ name: state.name, price: state.price }),
+        id => Use(Router).RouteTo("/subscriptions/" + id)
+    );
 
-    if(state.apiState.started)
-        return <APIStateHandler state={state.apiState} />;
+    if(apiState.started)
+        return apiState.fallback;
 
     const isValid = (state.name.trim().length > 0) && (state.price.match(/^[0-9]+(\.[0-9]+)?$/) !== null)
     return <>
@@ -47,6 +41,6 @@ export function AddSubscriptionComponent()
         <FormField title="Price">
             <LineEdit link={state.links.price} />
         </FormField>
-        <PushButton color="primary" enabled={isValid} onActivated={OnAdd}>Save</PushButton>
+        <PushButton color="primary" enabled={isValid} onActivated={apiState.start}>Save</PushButton>
     </>;
 }

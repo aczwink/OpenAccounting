@@ -15,11 +15,11 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
-import { Anchor, BootstrapIcon, JSX_CreateElement, JSX_Fragment, ProgressSpinner, Use, UseAPI, UseEffectOnce, UseRouteParameter, UseState } from "acfrontend";
+import { Anchor, BootstrapIcon, JSX_CreateElement, JSX_Fragment, Use, UseAPI, UseAPIs, UseRouteParameter, UseState } from "acfrontend";
 import { APIService } from "../APIService";
 import { PaymentDTO, PaymentDetailsDTO, PaymentLink } from "../../dist/api";
 import { PaymentServiceComponent } from "./PaymentServiceComponent";
-import { PaymentTypeToString } from "../shared/payments";
+import { PaymentLinkReasonToString, PaymentTypeToString } from "../shared/payments";
 import { IdentityReferenceComponent } from "../identities/IdentityReferenceComponent";
 import { RenderMonetaryValue } from "../shared/money";
 import { ItemsListComponent } from "../booking/ItemsListComponent";
@@ -79,7 +79,7 @@ export function PaymentInfoDetailsComponent(input: { payment: PaymentDTO} )
                 {p.note}
             </div>
             <div className="col-auto">
-                <h2><Anchor route={"/payments/edit/" + p.id}><BootstrapIcon>pencil</BootstrapIcon></Anchor></h2>
+                <h2><Anchor route={"/payments/" + p.id + "/edit"}><BootstrapIcon>pencil</BootstrapIcon></Anchor></h2>
             </div>
         </div>
     </div>;
@@ -105,7 +105,7 @@ function PaymentLinksComponent(input: { payments: PaymentWithLink[]; })
             case 0:
                 return RenderMonetaryValue(p.link.amount, p.currency);
             case 1:
-                return "cash deposit";
+                return PaymentLinkReasonToString(p.link.reason);
         }
     }
 
@@ -115,24 +115,10 @@ function PaymentLinksComponent(input: { payments: PaymentWithLink[]; })
 function PaymentLinksAPIComponent(input: { links: PaymentLink[] })
 {
     const state = UseState({
-        linkedPayments: Of<PaymentWithLink[] | null>(null)
-    })
-    UseEffectOnce( async () => {
-        const responses = await input.links.Values().Map(async x => await Use(APIService).payments.details._any_.get(x.paymentId)).PromiseAll();
-        const links = responses.map( (x, i) => {
-            if(x.statusCode === 404)
-                throw new Error("TODO: implment me correcly");
-            return {
-                ...x.data,
-                link: input.links[i]
-            };
-        });
-        state.linkedPayments = links;
+        linkedPayments: Of<PaymentWithLink[]>([])
     });
-
-    if(state.linkedPayments === null)
-        return <ProgressSpinner />;
-    return <PaymentLinksComponent payments={state.linkedPayments} />;
+    const api = UseAPIs(() => input.links.Values().Map(x => Use(APIService).payments.details._any_.get(x.paymentId)).PromiseAll(), data => state.linkedPayments = data.map( (x, i) => ({ ...x, link: input.links[i] }) ));
+    return api.success ? <PaymentLinksComponent payments={state.linkedPayments} /> : api.fallback;
 }
 
 function InternalViewPaymentDetails(input: { payment: PaymentDetailsDTO })

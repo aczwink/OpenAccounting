@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { DateTimePicker, FormField, FunctionState, JSX_CreateElement, JSX_Fragment, LineEdit, Select, TextArea, Use, UseAPI } from "acfrontend";
+import { DateTimePicker, FormField, FunctionState, JSX_CreateElement, JSX_Fragment, LineEdit, Select, TextArea, Use, UseAPIs } from "acfrontend";
 import { IdentityOverviewData, ManualPaymentCreationData, PaymentService, PaymentType } from "../../dist/api";
 import { PaymentTypeToString } from "../shared/payments";
 import { APIService } from "../APIService";
@@ -25,7 +25,8 @@ function PaymentEditorFormComponent(input: { payment: FunctionState<ManualPaymen
 {
     const p = input.payment;
 
-    const types = [PaymentType.Normal];
+    const types = [PaymentType.Normal, PaymentType.Withdrawal];
+    const selectedService = input.paymentServices.find(x => x.id === p.paymentServiceId);
     return <>
         <FormField title="Date and time">
             <DateTimePicker value={p.timestamp} onChanged={newValue => p.timestamp = newValue} />
@@ -39,6 +40,9 @@ function PaymentEditorFormComponent(input: { payment: FunctionState<ManualPaymen
             <Select onChanged={newValue => p.paymentServiceId = parseInt(newValue[0])}>
                 {input.paymentServices.map(x => <option value={x.id} selected={x.id === p.paymentServiceId}>{x.name}</option>)}
             </Select>
+        </FormField>
+        <FormField title="Transaction code">
+            {(selectedService?.type === "cash") ? <input type="text" placeholder="Automatically set" disabled className="form-control" /> : <LineEdit link={input.payment.links.externalTransactionId} />}
         </FormField>
         <div className="row">
             <div className="col">
@@ -74,16 +78,13 @@ function PaymentEditorFormComponent(input: { payment: FunctionState<ManualPaymen
     </>;
 }
 
-function QueryIdentitiesComponent(input: { payment: FunctionState<ManualPaymentCreationData>; paymentServices: PaymentService[]; })
-{
-    const apiState = UseAPI(() => Use(APIService).identities.get(), data => data.SortBy(x => x.lastName));
-    return apiState.success ? <PaymentEditorFormComponent identities={apiState.data} paymentServices={input.paymentServices} payment={input.payment} /> : apiState.fallback;
-}
-
 export function PaymentEditor(input: { payment: FunctionState<ManualPaymentCreationData> })
 {
-    const apiState = UseAPI(() => Use(APIService).payments.services.get({ type: "cash" }), data => data.SortBy(x => x.name));
-    return apiState.success ? <QueryIdentitiesComponent payment={input.payment} paymentServices={apiState.data} /> : apiState.fallback;
+    const apis = UseAPIs({
+        paymentServices: { call: () => Use(APIService).payments.services.get(), onSuccess: data => data.SortBy(x => x.name) },
+        identities: { call: () => Use(APIService).identities.get(), onSuccess: data => data.SortBy(x => x.lastName) },
+    });
+    return apis.success ? <PaymentEditorFormComponent identities={apis.data.identities} paymentServices={apis.data.paymentServices} payment={input.payment} /> : apis.fallback;
 }
 
 export function IsPaymentValid(payment: ManualPaymentCreationData)

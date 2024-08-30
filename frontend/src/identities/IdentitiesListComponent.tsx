@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { Anchor, Component, Injectable, JSX_CreateElement, Use, UseAPI } from "acfrontend";
+import { Anchor, BootstrapIcon, Component, Injectable, JSX_CreateElement, RouterButton, Use, UseAPI } from "acfrontend";
 import { IdentityOverviewData } from "../../dist/api";
 import { APIService } from "../APIService";
 
@@ -26,24 +26,24 @@ class InternalIdentitiesListComponent extends Component<{ identities: IdentityOv
     protected Render(): RenderValue
     {
         return <div className="row justify-content-center">
-            <div className="col-auto">
-            <table className="table table-sm table-striped">
-            <thead>
-                <th>First name</th>
-                <th>Last name</th>
-            </thead>
-            <tbody>
-                {this.input.identities.map(x => <tr>
-                    <td>
-                        <Anchor route={"/identities/" + x.id}>{x.firstName}</Anchor>
-                    </td>
-                    <td>
-                        <Anchor route={"/identities/" + x.id}>{x.lastName}</Anchor>
-                    </td>
-                </tr>)}
-            </tbody>
-            <caption>Showing {this.input.identities.length} identities.</caption>
-        </table>
+            <div className="col">
+                <table className="table table-sm table-striped">
+                    <thead>
+                        <th>First name</th>
+                        <th>Last name</th>
+                    </thead>
+                    <tbody>
+                        {this.input.identities.map(x => <tr>
+                            <td>
+                                <Anchor route={"/identities/" + x.id}>{x.firstName}</Anchor>
+                            </td>
+                            <td>
+                                <Anchor route={"/identities/" + x.id}>{x.lastName}</Anchor>
+                            </td>
+                        </tr>)}
+                    </tbody>
+                    <caption>Showing {this.input.identities.length} identities.</caption>
+                </table>
             </div>
         </div>;
         ;
@@ -53,5 +53,8 @@ class InternalIdentitiesListComponent extends Component<{ identities: IdentityOv
 export function IdentitiesListComponent()
 {
     const apiState = UseAPI(() => Use(APIService).identities.get(), data => data.SortBy(x => x.lastName));
-    return apiState.success ? <InternalIdentitiesListComponent identities={apiState.data} /> : apiState.fallback;
+    return <div className="container">
+        {apiState.success ? <InternalIdentitiesListComponent identities={apiState.data} /> : apiState.fallback}
+        <RouterButton color="primary" route="/identities/create"><BootstrapIcon>plus</BootstrapIcon> Create</RouterButton>
+    </div>;
 }

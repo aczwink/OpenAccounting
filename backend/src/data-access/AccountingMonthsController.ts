@@ -27,10 +27,15 @@ export class AccountingMonthsController
     }
 
     //Public methods
-    public async Add(year: number, month: number)
+    public async Create(year: number, month: number)
     {
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
-        await exector.InsertRow("accountingMonths", { year, month });
+        await exector.InsertRow("accountingMonths", {
+            year,
+            month,
+            isOpen: 1,
+            cashTransactionCounter: 1
+        });
     }
 
     public async Exists(year: number, month: number)
@@ -40,6 +45,22 @@ export class AccountingMonthsController
         if(row === undefined)
             return false;
         return true;
+    }
+
+    public async FetchNextCashTransactionCounter(year: number, month: number)
+    {
+        const conn = await this.dbController.GetFreeConnection();
+        await conn.value.StartTransaction();
+
+        const row = await conn.value.SelectOne("SELECT cashTransactionCounter FROM accountingMonths WHERE year = ? AND month = ?", year, month);
+        const result = row!.cashTransactionCounter as number;
+
+        await conn.value.Query("UPDATE accountingMonths SET cashTransactionCounter=cashTransactionCounter+1 WHERE year = ? AND month = ?", [year, month]);
+
+        await conn.value.Commit();
+        conn.Close();
+
+        return result;
     }
 
     public async QueryAllAccountingMonths()

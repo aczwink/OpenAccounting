@@ -16,12 +16,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { BootstrapIcon, JSX_CreateElement, Use, UseAPI } from "acfrontend";
+import { BootstrapIcon, JSX_CreateElement, RouterButton, Use, UseAPI } from "acfrontend";
 import { APIService } from "../APIService";
 import { ItemsListComponent } from "./ItemsListComponent";
+import { Item } from "../../dist/api";
 
 export function OpenItemsComponent()
 {
+    function Actions(item: Item)
+    {
+        return <RouterButton className="btn-sm" color="secondary" route={"/booking/items/" + item.id + "/createpayment"}><BootstrapIcon>plus</BootstrapIcon> Create payment</RouterButton>;
+    }
+
     const apiState = UseAPI(() => Use(APIService).items.open.get());
 
     if(apiState.success)
@@ -35,7 +41,7 @@ export function OpenItemsComponent()
                 </div>
             </div>
         }
-        return <ItemsListComponent items={apiState.data} />;
+        return <ItemsListComponent items={apiState.data} renderAdditionalActions={Actions} />;
     }
     return apiState.fallback;
 }

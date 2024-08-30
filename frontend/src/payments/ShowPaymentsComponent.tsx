@@ -31,7 +31,6 @@ export class ShowPaymentsComponent extends Component
             <br />
             <div className="btn-group">
                 <RouterButton color="primary" route="/payments/import"><BootstrapIcon>upload</BootstrapIcon> Import</RouterButton>
-                <RouterButton color="secondary" route="/payments/create"><BootstrapIcon>plus</BootstrapIcon> Create cash payment</RouterButton>
             </div>
         </fragment>;
     }

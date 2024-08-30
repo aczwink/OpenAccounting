@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { APIStateHandler, CallAPI, InitAPIState, JSX_CreateElement, JSX_Fragment, PushButton, Router, Use, UseEffectOnce, UseState } from "acfrontend";
+import { JSX_CreateElement, JSX_Fragment, PushButton, Router, Use, UseAPI, UseDeferredAPI, UseState } from "acfrontend";
 import { YearMonthPicker } from "../shared/YearMonthPicker";
 import { APIService } from "../APIService";
 
@@ -27,34 +27,30 @@ export function CreateAccountingMonthComponent()
         state.month = m;
         state.year = y;
     }
-    function OnCreate()
-    {
-        CallAPI(
-            () => Use(APIService).accounting.years._any_.months.post(state.year, { month: state.month }), state.links.creationAPIState,
-            () => Use(Router).RouteTo("/booking")
-        );
-    }
 
     const state = UseState({
         month: 1,
         year: 1970,
-        creationAPIState: InitAPIState(),
-        requestAPIState: InitAPIState<{ month: number, year: number }>(),
     });
-    UseEffectOnce(async () => {
-        CallAPI(() => Use(APIService).accounting.next.get(), state.links.requestAPIState, data => {
+    const requestAPIState = UseAPI(
+        () => Use(APIService).accounting.next.get(),
+        data => {
             state.month = data.month;
             state.year = data.year
-        });
-    });
+        }
+    );
+    const creationAPIState = UseDeferredAPI(
+        () => Use(APIService).accounting.years._any_.months.post(state.year, { month: state.month }),
+        () => Use(Router).RouteTo("/booking")
+    );
 
-    if(state.creationAPIState.started)
-        return <APIStateHandler state={state.creationAPIState} />;
-    if(!state.requestAPIState.success)
-        return <APIStateHandler state={state.requestAPIState} />;
+    if(creationAPIState.started)
+        return creationAPIState.fallback;
+    if(!requestAPIState.success)
+        return requestAPIState.fallback;
 
     return <>
         <YearMonthPicker month={state.month} onChanged={OnMonthYearSelectionChanged} year={state.year} />
-        <PushButton color="primary" enabled={true} onActivated={OnCreate}>Create</PushButton>
+        <PushButton color="primary" enabled={true} onActivated={creationAPIState.start}>Create</PushButton>
     </>;
 }

@@ -47,7 +47,8 @@ export interface Payment extends PaymentCreationData
 
 export enum PaymentLinkReason
 {
-    CashDeposit = 0
+    CashDeposit = 0,
+    PrivateDisbursement = 1
 }
 
 export interface PaymentLink
@@ -57,17 +58,17 @@ export interface PaymentLink
     reason: PaymentLinkReason;
 }
 
+export type PaymentServiceType = "bank" | "cash" | "paypal";
 interface PaymentService
 {
     id: number;
     name: string;
+    type: PaymentServiceType;
 }
 
-export type PaymentServiceType = "cash" | "paypal";
 interface FullPaymentServiceData extends PaymentService
 {
     type: PaymentServiceType;
-    externalAccount: string;
 }
 
 @Injectable
@@ -141,22 +142,6 @@ export class PaymentsController
         return rows;
     }
 
-    public async QueryPaymentsCountForServiceInRange(paymentServiceId: number, inclusiveStart: DateTime, inclusiveEnd: DateTime)
-    {
-        const query = `
-        SELECT COUNT(*) AS cnt
-        FROM payments
-        WHERE paymentServiceId = ?
-        AND timestamp >= ? AND timestamp <= ?
-        `;
-        const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
-        const row = await exector.SelectOne(query, paymentServiceId, inclusiveStart, inclusiveEnd);
-        console.log(row);
-        if(row === undefined)
-            return 0;
-        return parseInt(row.cnt);
-    }
-
     public async QueryPaymentsInRange(inclusiveStart: DateTime, inclusiveEnd: DateTime)
     {
         const query = `
@@ -203,9 +188,9 @@ export class PaymentsController
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
         if(type === undefined)
         {
-            return exector.Select<PaymentService>("SELECT id, name FROM paymentServices");
+            return exector.Select<PaymentService>("SELECT * FROM paymentServices");
         }
-        return exector.Select<PaymentService>("SELECT id, name FROM paymentServices WHERE type = ?", type);
+        return exector.Select<PaymentService>("SELECT * FROM paymentServices WHERE type = ?", type);
     }
 
     public async QueryService(paymentServiceId: number)

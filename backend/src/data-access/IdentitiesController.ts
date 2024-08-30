@@ -32,10 +32,17 @@ interface IdentityOverviewData
     lastName: string;
 }
 
-interface Identity extends IdentityOverviewData
+export interface IdentityCreationData
 {
-    paymentAccounts: PaymentAccountAssociation[];
+    firstName: string;
+    lastName: string;
     notes: string;
+}
+
+interface Identity extends IdentityCreationData
+{
+    id: number;
+    paymentAccounts: PaymentAccountAssociation[];
 }
 
 interface SubscriptionAssignment
@@ -75,11 +82,10 @@ export class IdentitiesController
         });
     }
 
-    public async CreateIdentity(name: string)
-    {
-        const parts = name.split(" ");
+    public async CreateIdentity(data: IdentityCreationData)
+    {        
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
-        const result = await exector.InsertRow("identities", { firstName: parts.slice(0, parts.length - 1).join(" "), lastName: parts[parts.length - 1], notes: "" });
+        const result = await exector.InsertRow("identities", data);
         return result.insertId;
     }
 
@@ -151,7 +157,7 @@ export class IdentitiesController
         }));        
     }
 
-    public async UpdateIdentity(identityId: number, data: { firstName: string; lastName: string; notes: string })
+    public async UpdateIdentity(identityId: number, data: IdentityCreationData)
     {
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
         await exector.UpdateRows("identities", data, "id = ?", identityId);

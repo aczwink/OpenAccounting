@@ -16,26 +16,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { PaymentLinkReason, PaymentType } from "../../dist/api";
+import { JSX_CreateElement, Use, UseAPI, UseRouteParameter } from "acfrontend";
+import { APIService } from "../APIService";
+import { ItemDetails } from "../../dist/api";
+import { CreatePaymentComponent } from "../payments/CreatePaymentComponent";
 
-export function PaymentLinkReasonToString(type: PaymentLinkReason)
+function InternalCreatePaymentBasedOnItem(input: { item: ItemDetails; })
 {
-    switch(type)
-    {
-        case PaymentLinkReason.CashDeposit:
-            return "cash deposit";
-        case PaymentLinkReason.PrivateDisbursement:
-            return "compensation for private disbursement";
-    }
+    const i = input.item;
+    return <CreatePaymentComponent init={{ amount: i.amount, senderId: i.debtorId, timestamp: i.timestamp }} />;
 }
 
-export function PaymentTypeToString(type: PaymentType, grossAmount: string)
+export function CreatePaymentBasedOnItem()
 {
-    switch(type)
-    {
-        case PaymentType.Normal:
-            return grossAmount.startsWith("-") ? "outbound" : "inbound";
-        case PaymentType.Withdrawal:
-            return "withdrawal";
-    }
+    const itemId = UseRouteParameter("route", "itemId", "unsigned");
+
+    const apiState = UseAPI(() => Use(APIService).items.details._any_.get(itemId));
+    return apiState.success ? <InternalCreatePaymentBasedOnItem item={apiState.data} /> : apiState.fallback;
 }

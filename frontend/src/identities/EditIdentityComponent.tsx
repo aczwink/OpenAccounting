@@ -16,49 +16,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { APIStateHandler, CallAPI, FormField, InitAPIState, JSX_CreateElement, JSX_Fragment, LineEdit, PushButton, Router, TextArea, Use, UseAPI, UseRouteParameter, UseState } from "acfrontend";
+import { UseRouteParameter, UseAPI, Use, JSX_CreateElement } from "acfrontend";
 import { APIService } from "../APIService";
-import { Identity } from "../../dist/api";
-
-function EditIdentityFormComponent(input: { identity: Identity })
-{
-    function OnSave()
-    {
-        CallAPI(
-            () => Use(APIService).identities._any_.put(input.identity.id, { newFirstName: state.firstName, newLastName: state.lastName, newNotes: state.notes }), state.links.updateAPIState,
-            () => Use(Router).RouteTo("/identities/" + input.identity.id)
-        );
-    }
-
-    const state = UseState({
-        firstName: input.identity.firstName,
-        lastName: input.identity.lastName,
-        notes: input.identity.notes,
-        updateAPIState: InitAPIState()
-    });
-
-    if(state.updateAPIState.started)
-        return <APIStateHandler state={state.updateAPIState} />;
-
-    const isValid = (state.firstName.trim().length > 0) && (state.lastName.trim().length > 0);
-    return <>
-        <FormField title="First name">
-            <LineEdit link={state.links.firstName} />
-        </FormField>
-        <FormField title="Last name">
-            <LineEdit link={state.links.lastName} />
-        </FormField>
-        <FormField title="Notes" description="Any additional notes to be memorized">
-            <TextArea onChanged={newValue => state.notes = newValue} value={state.notes} />
-        </FormField>
-        <PushButton color="primary" enabled={isValid} onActivated={OnSave}>Save</PushButton>
-    </>;
-}
+import { IdentityFormComponent } from "./IdentityFormComponent";
 
 export function EditIdentityComponent()
 {
     const identityId = UseRouteParameter("route", "identityId", "unsigned");
 
     const apiState = UseAPI(() => Use(APIService).identities._any_.get(identityId));
-    return apiState.success ? <EditIdentityFormComponent identity={apiState.data} /> : apiState.fallback;
+    return apiState.success ? <IdentityFormComponent init={apiState.data} provideIdentityId={() => identityId} saveAPI={data => Use(APIService).identities._any_.put(identityId, data)} /> : apiState.fallback;
 }

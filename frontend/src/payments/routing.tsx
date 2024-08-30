@@ -18,7 +18,6 @@
 
 import { JSX_CreateElement, Routes } from "acfrontend";
 import { AssociatePaymentComponent } from "./AssociatePaymentComponent";
-import { CreatePaymentComponent } from "./CreatePaymentComponent";
 import { EditPaymentDetailsComponent } from "./EditPaymentDetailsComponent";
 import { ImportPaymentsComponent } from "./ImportPaymentsComponent";
 import { ShowPaymentsComponent } from "./ShowPaymentsComponent";
@@ -43,7 +42,6 @@ const paymentRoutes: Routes = [
 ];
 
 export const paymentsRoutes: Routes = [
-    { path: "create", component: <CreatePaymentComponent /> },
     { path: "import", component: ImportPaymentsComponent },
     { path: "list", component: ShowPaymentsComponent, children: paymentListingRoutes },
     { path: "{paymentId}", children: paymentRoutes },

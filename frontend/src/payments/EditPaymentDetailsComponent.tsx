@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { CallAPI, InitAPIState, JSX_CreateElement, PushButton, Router, Use, UseAPI, UseRouteParameter, UseState } from "acfrontend";
+import { JSX_CreateElement, PushButton, Router, Use, UseAPI, UseDeferredAPI, UseRouteParameter, UseState } from "acfrontend";
 import { IsPaymentValid, PaymentEditor } from "./PaymentEditor";
 import { APIService } from "../APIService";
 import { ManualPaymentCreationData, PaymentDTO } from "../../dist/api";
@@ -24,28 +24,11 @@ import { Of } from "acts-util-core";
 
 function InternalEditPaymentDetailsComponent(input: { paymentId: number; payment: PaymentDTO })
 {
-    function OnUpdate()
-    {
-        CallAPI(
-            () => Use(APIService).payments.cash._any_.put(input.paymentId, {
-                currency: state.currency,
-                grossAmount: state.grossAmount,
-                note: state.note,
-                paymentServiceId: state.paymentServiceId,
-                receiverId: state.receiverId,
-                senderId: state.senderId,
-                timestamp: state.timestamp,
-                type: state.type
-            }),
-            state.links.apiState,
-            _ => Use(Router).RouteTo("/payments/details/" + input.paymentId)
-        );
-    }
-
     const p = input.payment;
     const state = UseState({
         ...Of<ManualPaymentCreationData>({
             currency: p.currency,
+            externalTransactionId: p.externalTransactionId,
             grossAmount: p.grossAmount,
             note: p.note,
             paymentServiceId: p.paymentServiceId,
@@ -54,12 +37,25 @@ function InternalEditPaymentDetailsComponent(input: { paymentId: number; payment
             timestamp: p.timestamp,
             type: p.type
         }),
-        apiState: InitAPIState(),
     });
+    const apiState = UseDeferredAPI(
+        () => Use(APIService).payments.cash._any_.put(input.paymentId, {
+            currency: state.currency,
+            externalTransactionId: state.externalTransactionId,
+            grossAmount: state.grossAmount,
+            note: state.note,
+            paymentServiceId: state.paymentServiceId,
+            receiverId: state.receiverId,
+            senderId: state.senderId,
+            timestamp: state.timestamp,
+            type: state.type
+        }),
+        _ => Use(Router).RouteTo("/payments/" + input.paymentId)
+    );
 
     return <div className="container">
         <PaymentEditor payment={state} />
-        <PushButton color="primary" enabled={IsPaymentValid(state)} onActivated={OnUpdate}>Save</PushButton>
+        <PushButton color="primary" enabled={IsPaymentValid(state)} onActivated={apiState.start}>Save</PushButton>
     </div>;
 }
 

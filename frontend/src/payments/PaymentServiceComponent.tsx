@@ -17,7 +17,7 @@
  * */
 
 import { BootstrapIcon, Component, Injectable, JSX_CreateElement, JSX_Fragment, ProgressSpinner } from "acfrontend";
-import { FullPaymentServiceData } from "../../dist/api";
+import { FullPaymentServiceData, PaymentServiceType } from "../../dist/api";
 import { CachedAPIService } from "../CachedAPIService";
 
 @Injectable
@@ -44,10 +44,12 @@ export class PaymentServiceComponent extends Component<{ paymentServiceId: numbe
     private data: FullPaymentServiceData | null;
 
     //Private methods
-    private RenderIcon(type: "cash" | "paypal")
+    private RenderIcon(type: PaymentServiceType)
     {
         switch(type)
         {
+            case "bank":
+                return "bank";
             case "cash":
                 return "cash-coin";
             case "paypal":

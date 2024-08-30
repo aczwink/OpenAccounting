@@ -16,14 +16,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { APIController, BodyProp, Get, Path, Post, Put } from "acts-util-apilib";
-import { IdentitiesController } from "../data-access/IdentitiesController";
+import { APIController, Body, BodyProp, Get, Path, Post, Put } from "acts-util-apilib";
+import { IdentitiesController, IdentityCreationData } from "../data-access/IdentitiesController";
 
 @APIController("identities")
 class _api_
 {
     constructor(private identitiesController: IdentitiesController)
     {
+    }
+
+    @Post()
+    public async CreateIdentity(
+        @Body data: IdentityCreationData
+    )
+    {
+        return await this.identitiesController.CreateIdentity(data);
     }
 
     @Get()
@@ -53,12 +61,20 @@ class _api2_
     @Put()
     public async UpdateIdentity(
         @Path identityId: number,
-        @BodyProp newFirstName: string,
-        @BodyProp newLastName: string,
-        @BodyProp newNotes: string
+        @Body data: IdentityCreationData
     )
     {
-        await this.identitiesController.UpdateIdentity(identityId, { firstName: newFirstName, lastName: newLastName, notes: newNotes });
+        await this.identitiesController.UpdateIdentity(identityId, data);
+    }
+
+    @Post("paymentAccounts")
+    public async AddPaymentAccount(
+        @Path identityId: number,
+        @BodyProp paymentServiceId: number,
+        @BodyProp externalAccount: string,
+    )
+    {
+        await this.identitiesController.AddPaymentAccount(identityId, paymentServiceId, externalAccount);
     }
 
     @Get("subscriptions")

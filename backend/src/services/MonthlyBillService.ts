@@ -21,23 +21,38 @@ import PDFMerger from 'pdf-merger-js';
 import { DateTime, Injectable } from "acts-util-node";
 import { LanguageService } from "./LanguageService";
 import { AccountingMonthService } from "./AccountingMonthService";
-import { ItemsController } from "../data-access/ItemsController";
+import { Item, ItemsController } from "../data-access/ItemsController";
 import { IdentitiesController } from "../data-access/IdentitiesController";
-import { PaymentsController } from "../data-access/PaymentsController";
+import { Payment, PaymentLink, PaymentLinkReason, PaymentsController } from "../data-access/PaymentsController";
 import { Money } from '@dintero/money';
-import { ProductsController } from '../data-access/ProductsController';
+import { Product, ProductsController } from '../data-access/ProductsController';
 import { AssetController } from '../data-access/AssetController';
+import { NumberDictionary } from 'acts-util-core';
+import { SubscriptionsController } from '../data-access/SubscriptionsController';
 
 interface MonthlyBillData
 {
+    expenses: {item: Item; payments: Payment[]; }[];
+    movements: { payment: Payment, links: PaymentLink[], linkedPayments: Payment[] }[];
+    products: { item: Item; payments: Payment[]; product: Product; }[];
+    subscriptions: { item: Item; payments: Payment[]; }[];
     transactionFeeSum: Money;
+}
+
+type TableColumnFormat = "accountingMonth" | "identity" | "paymentService" | "subscription";
+type TableValue = DateTime | Money | number | string | number[] | DateTime[];
+interface TableColumnDefinition<T>
+{
+    selector: (row: T) => TableValue;
+    title: string;
+    type?: TableColumnFormat;
 }
 
 @Injectable
 export class MonthlyBillService
 {
     constructor(private languageService: LanguageService, private accountingMonthService: AccountingMonthService, private itemsController: ItemsController, private identitiesController: IdentitiesController,
-        private paymentsController: PaymentsController, private productsController: ProductsController, private assetController: AssetController)
+        private paymentsController: PaymentsController, private productsController: ProductsController, private assetController: AssetController, private subscriptionsController: SubscriptionsController)
     {
     }
 
@@ -49,9 +64,11 @@ export class MonthlyBillService
 
         const pages = [
             { content: await this.GenerateTitlePage(year, month, data), landscape: false },
-            { content: await this.GenerateSubscriptionsPage(range.inclusiveStart, range.inclusiveEnd), landscape: true },
-            { content: await this.GenerateProductSalesPage(range.inclusiveStart, range.inclusiveEnd), landscape: true },
+            { content: await this.GenerateSubscriptionsPage(data), landscape: true },
+            { content: await this.GenerateProductSalesPage(data), landscape: true },
             { content: await this.GenerateManualSalesPage(range.inclusiveStart, range.inclusiveEnd), landscape: true },
+            { content: await this.GenerateExpensesPage(data), landscape: true },
+            { content: await this.GenerateMovementsPage(data), landscape: true },
         ];
         const pdfPages = await pages.Values().Map(x => this.HTMLToPDF(x.content, x.landscape)).PromiseAll();
         return this.MergePDFs(pdfPages);
@@ -66,17 +83,96 @@ export class MonthlyBillService
         const payments = await this.paymentsController.QueryPaymentsInRange(range.inclusiveStart, range.inclusiveEnd);
 
         let transactionFeeSum = Money.of("0", currency);
+        const expenses = [];
+        const movements = [];
+        const products = [];
+        const subscriptions = [];
         for (const payment of payments)
         {
             const itemIds = await this.paymentsController.QueryAssociatedItems(payment.id);
             const links = await this.paymentsController.QueryPaymentLinks(payment.id, "outgoing");
-            if((itemIds.length > 0) || (links.length > 0))
+
+            const isPaymentBooked = (itemIds.length > 0) || (links.length > 0);
+
+            if(isPaymentBooked)
                 transactionFeeSum = transactionFeeSum.add(Money.of(payment.transactionFee, payment.currency));
+
+            for (const itemId of itemIds)
+            {
+                const item = await this.itemsController.QueryItem(itemId);
+                if(item === undefined)
+                    throw new Error("should never happen");
+
+                const paymentIds = await this.itemsController.QueryPaymentIdsAssociatedWithItem(item.id);
+                const payments = await paymentIds.Values().Map(id => this.paymentsController.QueryPayment(id)).Async().NotUndefined().ToArray();
+
+                if(item.amount.startsWith("-"))
+                    expenses.push({ item, payments });
+                else if(item.subscriptionId !== null)
+                    subscriptions.push({ item, payments });
+                else if(item.productId !== null)
+                {
+                    const product = await this.productsController.QueryProduct(item.productId);
+                    if(product === undefined)
+                        throw new Error("should never happen");
+                    products.push({ item, payments, product });
+                }
+            }
+
+            if(links.length > 0)
+            {
+                movements.push({
+                    payment,
+                    links,
+                    linkedPayments: await links.Values().Map(x => this.paymentsController.QueryPayment(x.paymentId)).Async().NotUndefined().ToArray()
+                });
+            }
         }
 
         return {
-            transactionFeeSum
+            expenses,
+            transactionFeeSum,
+            movements,
+            products,
+            subscriptions
         };
+    }
+
+    private async GenerateExpensesPage(data: MonthlyBillData)
+    {
+        return this.GenerateTablePage("Ausgaben", [
+            {
+                selector: e => e.item.timestamp,
+                title: "Datum",
+            },
+            {
+                selector: e => e.item.subscriptionId!,
+                title: "Posten",
+                type: "subscription"
+            },
+            {
+                selector: p => p.item.debtorId,
+                title: "Kreditor",
+                type: "identity"
+            },
+            {
+                selector: p => Money.of(p.item.amount, p.item.currency),
+                title: "Betrag"
+            },
+            {
+                selector: p => p.payments.map(x => x.timestamp),
+                title: "Zahlungsdatum",
+            },
+            {
+                selector: p => p.payments.map(x => x.paymentServiceId),
+                title: "Zahlungsmittel",
+                type: "paymentService"
+            },
+            {
+                selector: p => p.payments.map(x => x.externalTransactionId).join("\n"),
+                title: "Transaktionscode",
+            },
+        ], data.expenses);
     }
 
     private async GenerateManualSalesPage(inclusiveStart: DateTime, inclusiveEnd: DateTime)
@@ -142,127 +238,209 @@ export class MonthlyBillService
         `;
     }
 
-    private async GenerateProductSalesPage(inclusiveStart: DateTime, inclusiveEnd: DateTime)
+    private GenerateMovementsPage(data: MonthlyBillData)
     {
-        const currency = await this.languageService.GetNativeCurrency();
-        const zone = await this.languageService.GetBookingTimeZone();
-
-        const items = await this.itemsController.QueryItemsInRange(inclusiveStart, inclusiveEnd);
-        const rows = [];
-        let sum = Money.of("0", currency);
-        for (const item of items)
+        function ReasonToString(links: PaymentLink[])
         {
-            if(item.productId === null)
-                continue;
-            const identity = await this.identitiesController.QueryIdentity(item.debtorId);
-            if(identity === undefined)
-                throw new Error("should never happen");
-            const product = await this.productsController.QueryProduct(item.productId);
-            if(product === undefined)
-                throw new Error("should never happen");
-
-            const paymentIds = await this.itemsController.QueryPaymentIdsAssociatedWithItem(item.id);
-            const payments = await paymentIds.Values().Map(id => this.paymentsController.QueryPayment(id)).Async().NotUndefined().ToArray();
-            const paymentServices = await payments.Values().Map(p => this.paymentsController.QueryService(p.paymentServiceId)).PromiseAll();
-
-            rows.push(`
-            <tr>
-                <td>${item.timestamp.ToZone(zone).ToLocalizedString("de")}</td>
-                <td>${product.title}</td>
-                <td>${identity.lastName + ", " + identity.firstName}</td>
-                <td>${item.amount + " " + item.currency}</td>
-                <td>1</td>
-                <td>${item.amount + " " + item.currency}</td>
-                <td>${paymentServices.map(x => x.name)}</td>
-                <td>${payments.map(x => x.externalTransactionId).join("\n")}</td>
-            </tr>
-            `);
-            sum = sum.add(Money.of(item.amount, item.currency));
+            if(links.Values().Distinct(x => x.reason).Count() != 1)
+                throw new Error("NOT IMPLEMENTED");
+            switch(links[0].reason)
+            {
+                case PaymentLinkReason.CashDeposit:
+                    return "Bareinlage";
+                case PaymentLinkReason.PrivateDisbursement:
+                    return "Ausgleich Privatauslage";
+            }
+        }
+        function IsCashDeposit(links: PaymentLink[])
+        {
+            if(links.Values().Distinct(x => x.reason).Count() != 1)
+                throw new Error("NOT IMPLEMENTED");
+            return links[0].reason === PaymentLinkReason.CashDeposit;
+        }
+        function PaymentServiceOf(linkedPayments: Payment[])
+        {
+            if(linkedPayments.Values().Distinct(x => x.paymentServiceId).Count() != 1)
+                throw new Error("NOT IMPLEMENTED");
+            return linkedPayments[0].paymentServiceId;
         }
 
-        return `
-        <h3>Verkäufe</h3>
-        <table class="borders">
-            <thead>
-                <tr>
-                    <th>Datum</th>
-                    <th>Posten</th>
-                    <th>Debitor</th>
-                    <th>Stückkosten</th>
-                    <th>Stückzahl</th>
-                    <th>Summe</th>
-                    <th>Zahlungsmittel</th>
-                    <th>Transaktionscode</th>
-                </tr>
-                ${rows.join("")}
-            </thead>
-            <tbody>
-                <tr>
-                    <td colspan="8"></td>
-                </tr>
-                <tr>
-                    <td colspan="5">Summe:</td>
-                    <td>${sum.toString() + " " + currency}</td>
-                    <td colspan="2"></td>
-                </tr>
-            </tbody>
-        </table>
-        `;
+        return this.GenerateTablePage("Monetäre Bewegungen", [
+            {
+                selector: m => m.payment.timestamp,
+                title: "Datum"
+            },
+            {
+                selector: m => ReasonToString(m.links),
+                title: "Beschreibung"
+            },
+            {
+                selector: m => IsCashDeposit(m.links) ? m.payment.senderId : m.payment.receiverId,
+                title: "Person",
+                type: "identity"
+            },
+            {
+                selector: m => Money.of(m.payment.grossAmount, m.payment.currency),
+                title: "Betrag"
+            },
+            {
+                selector: m => IsCashDeposit(m.links) ? PaymentServiceOf(m.linkedPayments) : m.payment.paymentServiceId,
+                title: "Zahlungsquelle",
+                type: "paymentService"
+            },
+            {
+                selector: m => IsCashDeposit(m.links) ? m.payment.paymentServiceId : PaymentServiceOf(m.linkedPayments),
+                title: "Zahlungsziel",
+                type: "paymentService"
+            },
+            {
+                selector: m => m.payment.externalTransactionId,
+                title: "Transaktionscode",
+            },
+            {
+                selector: m => m.linkedPayments.map(x => x.externalTransactionId).join(", "),
+                title: "zugehörige Transaktion"
+            }
+        ], data.movements, false);
     }
 
-    private async GenerateSubscriptionsPage(inclusiveStart: DateTime, inclusiveEnd: DateTime)
+    private async GenerateProductSalesPage(data: MonthlyBillData)
     {
-        const currency = await this.languageService.GetNativeCurrency();
+        return this.GenerateTablePage("Verkäufe", [
+            {
+                selector: p => p.item.timestamp,
+                title: "Fälligkeitsdatum",
+            },
+            {
+                selector: p => p.product.title,
+                title: "Posten",
+            },
+            {
+                selector: p => p.item.debtorId,
+                title: "Debitor",
+                type: "identity"
+            },
+            {
+                selector: p => Money.of(p.item.amount, p.item.currency),
+                title: "Betrag"
+            },
+            {
+                selector: p => p.payments.map(x => x.timestamp),
+                title: "Zahlungsdatum",
+            },
+            {
+                selector: p => p.payments.map(x => x.paymentServiceId),
+                title: "Zahlungsmittel",
+                type: "paymentService"
+            },
+            {
+                selector: p => p.payments.map(x => x.externalTransactionId).join("\n"),
+                title: "Transaktionscode",
+            },
+        ], data.products);
+    }
+
+    private async GenerateSubscriptionsPage(data: MonthlyBillData)
+    {
+        return this.GenerateTablePage("Abonnements", [
+            {
+                selector: s => s.item.timestamp,
+                title: "Beitragsmonat",
+                type: "accountingMonth"
+            },
+            {
+                selector: s => s.item.debtorId,
+                title: "Mitglied",
+                type: "identity"
+            },
+            {
+                selector: s => s.item.subscriptionId!,
+                title: "Posten",
+                type: "subscription"
+            },
+            {
+                selector: s => Money.of(s.item.amount, s.item.currency),
+                title: "Betrag",
+            },
+            {
+                selector: s => s.payments.map(x => x.paymentServiceId),
+                title: "Zahlungsmittel",
+                type: "paymentService"
+            },
+            {
+                selector: m => m.payments.map(x => x.externalTransactionId).join("\n"),
+                title: "Transaktionscode",
+            },
+        ], data.subscriptions);
+    }
+
+    private async GenerateTablePage<T>(title: string, columns: TableColumnDefinition<T>[], rows: T[], addSum?: boolean)
+    {
         const zone = await this.languageService.GetBookingTimeZone();
+        
+        const htmlRows: string[] = [];
+        const sums: NumberDictionary<Money> = {};
 
-        const items = await this.itemsController.QueryItemsInRange(inclusiveStart, inclusiveEnd);
-        const rows = [];
-        let sum = Money.of("0", currency);
-        for (const item of items)
+        for (const row of rows)
         {
-            if(item.subscriptionId === null)
-                continue;
-            const identity = await this.identitiesController.QueryIdentity(item.debtorId);
-            if(identity === undefined)
-                throw new Error("should never happen");
-            const paymentIds = await this.itemsController.QueryPaymentIdsAssociatedWithItem(item.id);
-            const payments = await paymentIds.Values().Map(id => this.paymentsController.QueryPayment(id)).Async().NotUndefined().ToArray();
-            const paymentServices = await payments.Values().Map(p => this.paymentsController.QueryService(p.paymentServiceId)).PromiseAll();
+            const cells: string[] = [];
+            for (const col of columns)
+            {
+                const value = col.selector(row);
+                cells.push(await this.ValueToString(value, zone, col.type));
+                if(value instanceof Money)
+                {
+                    const index = cells.length - 1;
+                    if(index in sums)
+                        sums[index] = sums[index]!.add(value);
+                    else
+                        sums[index] = value;
+                }
+                
+            }
+            htmlRows.push("<tr>" + cells.map(x => "<td>" + x + "</td>").join("") + "</tr>");
+        }
 
-            rows.push(`
+        let lastIndex = 0;
+        const sumCols: string[] = [];
+        for (const kv of sums.Entries().OrderBy(kv => parseInt(kv.key.toString())))
+        {
+            if(sumCols.length === 0)
+                sumCols.push(`<td colspan="${kv.key - lastIndex}">Summe:</td>`);
+            else
+                sumCols.push(`<td colspan="${kv.key - lastIndex}">${this.RenderMonetaryValue(kv.value!)}</td>`);
+            lastIndex = parseInt(kv.key.toString());
+        }
+        if((lastIndex > 0) && (lastIndex < (columns.length - 1)))
+        {
+            const last = sums[lastIndex];
+            sumCols.push(`<td colspan="${columns.length - lastIndex}">${this.RenderMonetaryValue(last!)}</td>`)
+        }
+
+        let sumRow = "";
+        if(addSum ?? true)
+        {
+            sumRow = `
             <tr>
-                <td>${item.timestamp.ToZone(zone).Format("MMMM YYYY")}</td>
-                <td>${identity.lastName + ", " + identity.firstName}</td>
-                <td>${item.amount + " " + item.currency}</td>
-                <td>${paymentServices.map(x => x.name)}</td>
-                <td>${payments.map(x => x.externalTransactionId).join("\n")}</td>
+                    <td colspan="${columns.length}"></td>
             </tr>
-            `);
-            sum = sum.add(Money.of(item.amount, item.currency));
+            <tr>
+                ${sumCols.join("")}
+            </tr>
+            `;
         }
 
         return `
-        <h3>Abonnements</h3>
+        <h3>${title}</h3>
         <table class="borders">
             <thead>
                 <tr>
-                    <th>Beitragsmonat</th>
-                    <th>Mitglied</th>
-                    <th>Betrag</th>
-                    <th>Zahlungsmittel</th>
-                    <th>Transaktionscode</th>
+                    ${columns.map(x => "<th>" + x.title + "</th>").join("")}
                 </tr>
-                ${rows.join("")}
             </thead>
             <tbody>
-                <tr>
-                    <td colspan="5"></td>
-                </tr>
-                <tr>
-                    <td colspan="2">Summe:</td>
-                    <td>${sum.toString() + " " + currency}</td>
-                    <td colspan="2"></td>
-                </tr>
+                ${htmlRows.join("")}
+                ${sumRow}
             </tbody>
         </table>
         `;
@@ -281,20 +459,30 @@ export class MonthlyBillService
         const items = await this.itemsController.QueryItemsInRange(range.inclusiveStart, range.inclusiveEnd);
 
         let expenses = Money.of("0", currency);
+        for (const entry of data.expenses)
+            expenses = expenses.add(Money.of(entry.item.amount, entry.item.currency));
+
         let manualSalesSum = Money.of("0", currency);
-        let productsSum = Money.of("0", currency);
-        let subscriptionsSum = Money.of("0", currency);
         for (const item of items)
         {
-            if(item.productId !== null)
-                productsSum = productsSum.add(Money.of(item.amount, item.currency));
-            else if(item.subscriptionId !== null)
-                subscriptionsSum = subscriptionsSum.add(Money.of(item.amount, item.currency));
-            else
+            if((item.subscriptionId === null) && (item.productId === null))
                 manualSalesSum = manualSalesSum.add(Money.of(item.amount, item.currency));
-
-            //transactionCostSum = transactionCostSum.add(item.)
         }
+
+        let productsSum = Money.of("0", currency);
+        for (const product of data.products)
+        {
+            const item = product.item;
+            productsSum = productsSum.add(Money.of(item.amount, item.currency));
+        }
+
+        let subscriptionsSum = Money.of("0", currency);
+        for (const subscription of data.subscriptions)
+        {
+            const item = subscription.item;
+            subscriptionsSum = subscriptionsSum.add(Money.of(item.amount, item.currency));
+        }
+
         const salesVolume = productsSum.add(subscriptionsSum);
         const totalEarnings = salesVolume.add(manualSalesSum);
         const balance = totalEarnings.add(expenses).add(data.transactionFeeSum);
@@ -329,7 +517,7 @@ export class MonthlyBillService
                 </tr>
                 <tr>
                     <th>Ausgaben:</th>
-                    <td>${expenses.toString() + " " + currency}</td>
+                    <td>${this.RenderMonetaryValue(expenses)}</td>
                 </tr>
                 <tr>
                     <th>Transaktionsgebühren:</th>
@@ -394,6 +582,49 @@ export class MonthlyBillService
         await pdfs.Values().Map(async pdf => await merger.add(pdf)).PromiseAll();
 
         return await merger.saveAsBuffer();
+    }
+
+    private async ValueToString(value: TableValue, zone: string, format?: TableColumnFormat): Promise<string>
+    {
+        if(Array.isArray(value))
+        {
+            const values = await (value as any[]).Values().Map(x => this.ValueToString(x, zone, format)).PromiseAll();
+            return values.join("\n");
+        }
+        else if(value instanceof DateTime)
+        {
+            if(format === "accountingMonth")
+                return value.ToZone(zone).Format("MMMM YYYY");
+            else
+                return value.ToZone(zone).ToLocalizedString("de");
+        }
+        else if(value instanceof Money)
+        {
+            return this.RenderMonetaryValue(value);
+        }
+        else if(typeof value === "number")
+        {
+            switch(format)
+            {
+                case "identity":
+                    const identity = await this.identitiesController.QueryIdentity(value);
+                    if(identity === undefined)
+                        throw new Error("should never happen");
+                    return identity.lastName + ", " + identity.firstName;
+                case "paymentService":
+                    const paymentService = await this.paymentsController.QueryService(value);
+                    return paymentService.name;
+                case "subscription":
+                    const subscription = await this.subscriptionsController.QuerySubscription(value);
+                    if(subscription === undefined)
+                        throw new Error("should never happen");
+                    return subscription.name;
+                default:
+                    throw new Error("Type required for column");
+            }
+        }
+        else
+            return value;
     }
 
     private WrapHTMLBody(body: string)

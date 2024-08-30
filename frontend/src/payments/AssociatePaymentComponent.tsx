@@ -16,9 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { APIStateHandler, BootstrapIcon, CallAPI, InitAPIState, JSX_CreateElement, JSX_Fragment, PushButton, Router, RouterButton, Use, UseEffectOnce, UseRouteParameter, UseState } from "acfrontend";
+import { BootstrapIcon, JSX_CreateElement, JSX_Fragment, PushButton, Router, RouterButton, Use, UseAPIs, UseDeferredAPI, UseRouteParameter, UseState } from "acfrontend";
 import { APIService } from "../APIService";
-import { Item, PaymentDTO } from "../../dist/api";
 import { ItemsListComponent } from "../booking/ItemsListComponent";
 import { PaymentInfoDetailsComponent } from "./ViewPaymentDetailsComponent";
 
@@ -26,38 +25,35 @@ export function AssociatePaymentComponent()
 {
     function OnAssociate(itemId: number)
     {
-        CallAPI(
-            () => Use(APIService).payments.items._any_.post(paymentId, { itemId }),
-            state.links.assocAPIState,
-            () => Use(Router).RouteTo("/payments/list/open")
-        );
+        state.selectedItemId = itemId;
+        assocAPIState.start();
     }
 
     const paymentId = UseRouteParameter("route", "paymentId", "unsigned");
 
     const state = UseState({
-        assocAPIState: InitAPIState(),
-        itemsAPIState: InitAPIState<Item[]>(),
-        paymentAPIState: InitAPIState<PaymentDTO>(),
+        selectedItemId: 0
     });
 
-    UseEffectOnce(() => {
-        CallAPI(() => Use(APIService).payments.details._any_.get(paymentId), state.links.paymentAPIState);
-        CallAPI(() => Use(APIService).items.open.get(), state.links.itemsAPIState);
+    const apis = UseAPIs({
+        payment: { call: () => Use(APIService).payments.details._any_.get(paymentId) },
+        items: { call: () => Use(APIService).items.open.get() }
     });
+    const assocAPIState = UseDeferredAPI(
+        () => Use(APIService).payments.items._any_.post(paymentId, { itemId: state.selectedItemId }),
+        () => Use(Router).RouteTo("/payments/list/open")
+    );
 
-    if(!state.itemsAPIState.success)
-        return <APIStateHandler state={state.itemsAPIState} />;
-    if(!state.paymentAPIState.success)
-        return <APIStateHandler state={state.paymentAPIState} />;
-    if(state.assocAPIState.started)
-        return <APIStateHandler state={state.assocAPIState} />;
+    if(!apis.success)
+        return apis.fallback;
+    if(assocAPIState.started)
+        return assocAPIState.fallback;
 
     return <>
         <h4>Associate payment:</h4>
-        <PaymentInfoDetailsComponent payment={state.paymentAPIState.data} />
+        <PaymentInfoDetailsComponent payment={apis.data.payment} />
         <h5>With item:</h5>
-        <ItemsListComponent items={state.itemsAPIState.data} actionsColumnName="Select" renderAdditionalActions={i => <PushButton small color="success" enabled={true} onActivated={OnAssociate.bind(null, i.id)}>Associate</PushButton>} />
+        <ItemsListComponent items={apis.data.items} actionsColumnName="Select" renderAdditionalActions={i => <PushButton small color="success" enabled={true} onActivated={OnAssociate.bind(null, i.id)}>Associate</PushButton>} />
         <RouterButton color="primary" route={"/payments/" + paymentId + "/associate/createitem"}><BootstrapIcon>plus</BootstrapIcon> Create</RouterButton>
     </>;
 }

@@ -17,7 +17,7 @@
  * */
 
 import { APIController, Body, BodyProp, FormField, Get, NotFound, Path, Post, Put, Query } from "acts-util-apilib";
-import { Payment, PaymentLink, PaymentServiceType, PaymentsController } from "../data-access/PaymentsController";
+import { Payment, PaymentLink, PaymentsController } from "../data-access/PaymentsController";
 import { ManualPaymentCreationData, PaymentsImportService } from "../services/PaymentsImportService";
 import { UploadedFile } from "acts-util-node/dist/http/UploadedFile";
 import { PaymentAssociationService } from "../services/PaymentAssociationService";
@@ -66,7 +66,7 @@ class _api_
         return await this.paymentsImportService.ImportPayments(paymentServiceId, paymentsData.buffer);
     }
 
-    @Post("cash")
+    @Post("manual")
     public async CreatePayment(
         @Body paymentData: ManualPaymentCreationData
     )
@@ -100,11 +100,9 @@ class _api_
     }
 
     @Get("services")
-    public async RequestPaymentServices(
-        @Query type?: PaymentServiceType
-    )
+    public async RequestPaymentServices()
     {
-        return this.paymentsController.QueryServices(type);
+        return this.paymentsController.QueryServices();
     }
 
     @Get("services/{serviceId}")

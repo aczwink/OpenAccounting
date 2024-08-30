@@ -16,13 +16,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { APICallState, APIStateHandler, Anchor, BootstrapIcon, CallAPI, Component, InitAPIState, Injectable, JSX_CreateElement, JSX_Fragment, PopupManager, ProgressSpinner, PushButton, RouteParamProperty, State, TitleService } from "acfrontend";
+import { Anchor, BootstrapIcon, Component, CreateDeferredAPIState, DeferredAPIState, Injectable, JSX_CreateElement, JSX_Fragment, PopupManager, ProgressSpinner, PushButton, RouteParamProperty, TitleService } from "acfrontend";
 import { Identity, SubscriptionAssignment } from "../../dist/api";
 import { CachedAPIService } from "../CachedAPIService";
 import { PaymentServiceComponent } from "../payments/PaymentServiceComponent";
 import { AssignSubscriptionComponent } from "./AssignSubscriptionComponent";
 import { APIService } from "../APIService";
 import { SubscriptionReferenceComponent } from "../subscriptions/SubscriptionReferenceComponent";
+import { AddPaymentAccountComponent } from "./AddPaymentAccountComponent";
 
 @Injectable
 export class ShowIdentityComponent extends Component
@@ -32,9 +33,7 @@ export class ShowIdentityComponent extends Component
         super();
 
         this.data = null;
-        this.apiStates = this.CreateState({
-            loadSubscriptionsState: InitAPIState<SubscriptionAssignment[]>()
-        })
+        this.loadSubscriptionsState = CreateDeferredAPIState(() => this.apiService.identities._any_.subscriptions.get(this.identityId), this);
     }
     
     protected Render(): RenderValue
@@ -42,11 +41,34 @@ export class ShowIdentityComponent extends Component
         if(this.data === null)
             return <ProgressSpinner />;
 
-        return <fragment>
+        return <div className="container">
             <h3>{this.data.firstName} {this.data.lastName} <Anchor route={"/identities/edit/" + this.identityId}><BootstrapIcon>pencil</BootstrapIcon></Anchor></h3>
             <p>{this.data.notes}</p>
 
             <hr />
+            {this.RenderPaymentAccounts()}
+
+            <hr />
+            {this.RenderSubscriptions()}
+        </div>;
+    }
+
+    //Private state
+    private data: Identity | null;
+    private loadSubscriptionsState: DeferredAPIState<SubscriptionAssignment[]>;
+
+    //Private methods
+    private async LoadData()
+    {
+        this.data = await this.cachedAPIService.RequestIdentity(this.identityId);
+        this.titleService.title = this.data.firstName + " " + this.data.lastName;
+        
+        this.loadSubscriptionsState.start();
+    }
+
+    private RenderPaymentAccounts()
+    {
+        return <>
             <h5>Payment accounts</h5>
             <table className="table table-sm table-striped">
                 <thead>
@@ -54,27 +76,14 @@ export class ShowIdentityComponent extends Component
                     <th>Account</th>
                 </thead>
                 <tbody>
-                    {this.data.paymentAccounts.map(x => <tr>
+                    {this.data!.paymentAccounts.map(x => <tr>
                         <td><PaymentServiceComponent paymentServiceId={x.paymentServiceId} /></td>
                         <td>{x.externalAccount}</td>
                     </tr>)}
                 </tbody>
             </table>
-
-            <hr />
-            {this.RenderSubscriptions()}
-        </fragment>;
-    }
-
-    //Private state
-    private data: Identity | null;
-    private apiStates: State<{ loadSubscriptionsState: APICallState<SubscriptionAssignment[]> }>;
-
-    //Private methods
-    private async LoadData()
-    {
-        this.apiStates.loadSubscriptionsState = InitAPIState();
-        CallAPI(() => this.apiService.identities._any_.subscriptions.get(this.identityId), this.apiStates.links.loadSubscriptionsState);
+            <PushButton color="primary" enabled={true} onActivated={this.OnAddPaymentAccount.bind(this)}><BootstrapIcon>plus</BootstrapIcon> Create</PushButton>
+        </>;
     }
 
     private RenderSubscriptionEnd(end: string | null)
@@ -91,10 +100,10 @@ export class ShowIdentityComponent extends Component
 
     private RenderSubscriptions()
     {
-        const apiState = this.apiStates.loadSubscriptionsState;
+        const apiState = this.loadSubscriptionsState;
         return <>
             <h5>Subscriptions</h5>
-            {apiState.success ? this.RenderSubscriptionsTable(apiState.data) : <APIStateHandler state={apiState} />}
+            {apiState.state.success ? this.RenderSubscriptionsTable(apiState.state.data) : apiState.fallback}
             <PushButton color="primary" enabled={true} onActivated={this.OnAddSubscription.bind(this)}>Assign subscription</PushButton>
         </>;
     }
@@ -118,6 +127,12 @@ export class ShowIdentityComponent extends Component
     }
 
     //Event handlers
+    private OnAddPaymentAccount()
+    {
+        const dialogRef = this.popupManager.OpenDialog(<AddPaymentAccountComponent identityId={this.identityId} />, { title: "Add payment account" });
+        dialogRef.onClose.Subscribe(this.LoadData.bind(this));
+    }
+
     private OnAddSubscription()
     {
         const dialogRef = this.popupManager.OpenDialog(<AssignSubscriptionComponent identityId={this.identityId} />, { title: "Assign subscription" });
@@ -126,9 +141,6 @@ export class ShowIdentityComponent extends Component
     
     override async OnInitiated(): Promise<void>
     {
-        this.data = await this.cachedAPIService.RequestIdentity(this.identityId);
-        this.titleService.title = this.data.firstName + " " + this.data.lastName;
-
-        await this.LoadData();
+        this.LoadData();
     }
 }
