@@ -19,6 +19,13 @@
 import { Injectable } from "acts-util-node";
 import { DatabaseController } from "./DatabaseController";
 
+interface AccountingMonth
+{
+    year: number;
+    month: number;
+    isOpen: boolean;
+}
+
 @Injectable
 export class AccountingMonthsController
 {
@@ -66,7 +73,7 @@ export class AccountingMonthsController
     public async QueryAllAccountingMonths()
     {
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
-        const rows = await exector.Select<{ year: number; month: number }>("SELECT year, month FROM accountingMonths");
+        const rows = await exector.Select<AccountingMonth>("SELECT year, month, isOpen FROM accountingMonths");
         return rows;
     }
 
@@ -95,5 +102,11 @@ export class AccountingMonthsController
         const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
         const rows = await exector.Select("SELECT DISTINCT year FROM accountingMonths");
         return rows.map<number>(x => x.year);
+    }
+
+    public async Update(isOpen: boolean, year: number, month: number)
+    {
+        const exector = await this.dbController.CreateAnyConnectionQueryExecutor();
+        await exector.UpdateRows("accountingMonths", { isOpen }, "year = ? AND month = ?", year, month);
     }
 }

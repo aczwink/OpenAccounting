@@ -22,12 +22,13 @@ import { IdentitiesController } from "../data-access/IdentitiesController";
 import { ItemsController } from "../data-access/ItemsController";
 import { SubscriptionsController } from "../data-access/SubscriptionsController";
 import { LanguageService } from "./LanguageService";
+import { PaymentsController } from "../data-access/PaymentsController";
 
 @Injectable
 export class AccountingMonthService
 {
     constructor(private accountingMonthsController: AccountingMonthsController, private identitiesController: IdentitiesController, private itemsController: ItemsController, private subscriptionsController: SubscriptionsController,
-        private languageService: LanguageService
+        private languageService: LanguageService, private paymentsController: PaymentsController
     )
     {
     }
@@ -87,5 +88,30 @@ export class AccountingMonthService
             year: timeStampWithBookingTimeZone.year,
             month: timeStampWithBookingTimeZone.month
         };
+    }
+
+    public async SetLockStatus(year: number, month: number, locked: boolean)
+    {
+        if(!locked)
+        {
+            await this.accountingMonthsController.Update(true, year, month);
+            return;
+        }
+
+        const items = await this.itemsController.QueryOpenItems();
+        for (const item of items)
+        {
+            if((item.timestamp.year === year) && (item.timestamp.month === month))
+                throw new Error("There are open items in this accounting month");
+        }
+
+        const payments = await this.paymentsController.QueryOpenPayments();
+        for (const payment of payments)
+        {
+            if((payment.timestamp.year === year) && (payment.timestamp.month === month))
+                throw new Error("There are open payments in this accounting month");
+        }
+
+        await this.accountingMonthsController.Update(false, year, month);
     }
 }

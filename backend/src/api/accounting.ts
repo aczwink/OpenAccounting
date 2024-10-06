@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * */
 
-import { APIController, BodyProp, Get, Path, Post } from "acts-util-apilib";
+import { APIController, BodyProp, Get, Path, Post, Put } from "acts-util-apilib";
 import { AccountingMonthService } from "../services/AccountingMonthService";
 import { AccountingMonthsController } from "../data-access/AccountingMonthsController";
 
@@ -81,5 +81,15 @@ class _api_
     )
     {
         await this.accountingMonthService.CreateAccountingMonth(year, month);
+    }
+
+    @Put("years/{year}/months/{month}")
+    public async SetAccountingMonthLockStatus(
+        @Path year: number,
+        @Path month: number,
+        @BodyProp locked: boolean
+    )
+    {
+        await this.accountingMonthService.SetLockStatus(year, month, locked);
     }
 }
